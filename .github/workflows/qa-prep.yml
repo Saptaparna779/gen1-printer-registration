@@ -1,0 +1,52 @@
+name: QA Prep on Ready for QA
+
+on:
+  repository_dispatch:
+    types: [qa_ready]
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+
+      - name: Fetch live Jira ticket
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: python fetch_jira_ticket.py ${{ github.event.client_payload.issue_key }}
+
+      - name: Generate diff against the fix branch
+        run: |
+          mkdir -p reports
+          git fetch origin ${{ github.event.client_payload.branch }}
+          git diff origin/main origin/${{ github.event.client_payload.branch }} -- app/ > reports/${{ github.event.client_payload.issue_key }}_diff.txt
+
+      - name: Commit fetched ticket + diff back to the repo
+        run: |
+          git config user.name "qa-automation-bot"
+          git config user.email "qa-automation-bot@users.noreply.github.com"
+          git add jira_context reports
+          git commit -m "Auto-prep QA context for ${{ github.event.client_payload.issue_key }}" || echo "Nothing new to commit"
+          git push
+
+      - name: Notify Jira that prep is ready for Copilot review
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          echo "QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/${{ github.event.client_payload.issue_key }}_diff.txt and jira_context/${{ github.event.client_payload.issue_key }}_live.md)." > reports/notify.md
+          python post_jira_comment.py ${{ github.event.client_payload.issue_key }} reports/notify.md
