@@ -1,4 +1,4 @@
-name: QA Prep on Ready for QA
+﻿name: QA Prep on Ready for QA
 
 on:
   repository_dispatch:
@@ -87,4 +87,4 @@ jobs:
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         run: |
           echo "QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/${{ github.event.client_payload.issue_key }}_diff.txt and jira_context/${{ github.event.client_payload.issue_key }}_live.md)." > reports/notify.md
-          python post_jira_comment.py ${{ github.event.client_payload.issue_key }} reports/notify.mds
+          python post_jira_comment.py ${{ github.event.client_payload.issue_key }} reports/notify.md
