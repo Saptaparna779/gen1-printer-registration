@@ -102,8 +102,8 @@ def register_printer(
     printer.cloud_id = _generate_cloud_id()
     
     printer.printer_email_id = _generate_printer_email_id()
-    if printer.status != PrinterStatus.CLAIMED:
-        printer.claim_code = _generate_claim_code()
+    printer.claim_code = _generate_claim_code()
+  
     printer.log(f"Cloud identity created: {printer.cloud_id}")
 
     store.save_printer(printer)
@@ -164,10 +164,7 @@ def claim_printer(claim_code: str, user_id: str) -> Printer:
     if target is None:
         raise InvalidClaimCodeError("Claim code not recognized")
 
-    if target.status == PrinterStatus.CLAIMED:
-        raise InvalidClaimCodeError("Printer is already claimed")
-
-    if target.claim_code.used:
+   if target.claim_code.used:
         raise InvalidClaimCodeError("Claim code has already been used")
 
     target.owner_user_id = user_id
