@@ -95,12 +95,8 @@ def register_printer(
     printer.log("Registration started")
 
     # Step 1: Cloud identity
-    if existing and existing.cloud_id:
-        # Re-registration path: reuse identity fields already on record.
-        printer.cloud_id = existing.cloud_id
-    else:
-        printer.cloud_id = _generate_cloud_id()
-
+    printer.cloud_id = _generate_cloud_id()
+    
     printer.printer_email_id = _generate_printer_email_id()
     printer.claim_code = _generate_claim_code()
     printer.log(f"Cloud identity created: {printer.cloud_id}")
@@ -145,6 +141,7 @@ def _rollback_registration(printer: Printer) -> None:
     """
     store.delete_printer(printer.printer_id)
     store.remove_serial_index(printer.serial_number)
+    store.delete_capabilities(printer.printer_id)
 
 
 def claim_printer(claim_code: str, user_id: str) -> Printer:
