@@ -32,7 +32,9 @@ jobs:
         run: |
           mkdir -p reports
           git fetch origin ${{ github.event.client_payload.branch }}
-          git diff origin/main origin/${{ github.event.client_payload.branch }} -- app/ > reports/${{ github.event.client_payload.issue_key }}_diff.txt
+          FIX_COMMIT=$(git rev-parse origin/${{ github.event.client_payload.branch }})
+          git diff ${FIX_COMMIT}^ ${FIX_COMMIT} -- app/ > reports/${{ github.event.client_payload.issue_key }}_diff.txt
+          
       - name: Generate the Copilot validation prompt run: |
           cat > reports/${{ github.event.client_payload.issue_key }}_copilot_prompt.txt << 'EOF'
           You are acting as a Fix Validation Agent for a QA workflow.
