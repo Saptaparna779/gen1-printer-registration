@@ -15,7 +15,15 @@ _capabilities: Dict[str, PrinterCapabilities] = {}
 # serial_number -> printer_id  (only for ACTIVE/REGISTERED printers)
 _serial_index: Dict[str, str] = {}
 
+_email_index: Dict[str, str] = {}
 
+def index_email(email: str, printer_id: str) -> None:
+    _email_index[email] = printer_id
+
+def get_printer_by_email(email: str):
+    printer_id = _email_index.get(email)
+    return _printers.get(printer_id) if printer_id else None
+    
 def reset() -> None:
     """Wipe the store. Used between tests / demo runs."""
     _printers.clear()
