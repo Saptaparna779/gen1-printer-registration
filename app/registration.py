@@ -164,6 +164,9 @@ def claim_printer(claim_code: str, user_id: str) -> Printer:
     if target is None:
         raise InvalidClaimCodeError("Claim code not recognized")
 
+    if target.status == PrinterStatus.CLAIMED:
+        raise InvalidClaimCodeError("Printer is already claimed")
+
     if target.claim_code.used:
         raise InvalidClaimCodeError("Claim code has already been used")
 
