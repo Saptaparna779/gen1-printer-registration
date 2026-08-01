@@ -38,7 +38,7 @@ jobs:
         run: |
           git config user.name "qa-automation-bot"
           git config user.email "qa-automation-bot@users.noreply.github.com"
-          git add jira_context reports
+          git add -f jira_context reports
           git commit -m "Auto-prep QA context for ${{ github.event.client_payload.issue_key }}" || echo "Nothing new to commit"
           git push
 
