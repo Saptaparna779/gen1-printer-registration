@@ -1,4 +1,4 @@
-**Key:** GEN1-201
+**Key:** GOAR-3
 **Type:** Bug
 **Priority:** High
 **Component:** Printer Onboarding & Registration

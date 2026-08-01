@@ -1,4 +1,4 @@
-**Key:** GEN1-102
+**Key:** GOAR-2
 **Type:** Story
 **Priority:** High
 **Component:** Printer Onboarding & Registration

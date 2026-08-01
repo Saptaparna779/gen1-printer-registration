@@ -1,4 +1,4 @@
-**Key:** GEN1-301
+**Key:** GOAR-6
 **Type:** Maintenance / Tech Debt
 **Priority:** Medium
 **Component:** Printer Onboarding & Registration

@@ -1,4 +1,4 @@
-**Key:** GEN1-101
+**Key:** GAOR-1
 **Type:** Story
 **Priority:** Medium
 **Component:** Printer Onboarding & Registration
