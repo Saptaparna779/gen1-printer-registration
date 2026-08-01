@@ -34,8 +34,8 @@ jobs:
           git fetch origin ${{ github.event.client_payload.branch }}
           FIX_COMMIT=$(git rev-parse origin/${{ github.event.client_payload.branch }})
           git diff ${FIX_COMMIT}^ ${FIX_COMMIT} -- app/ > reports/${{ github.event.client_payload.issue_key }}_diff.txt
-          
-      - name: Generate the Copilot validation prompt 
+
+      - name: Generate the Copilot validation prompt
         run: |
           cat > reports/${{ github.event.client_payload.issue_key }}_copilot_prompt.txt << 'EOF'
           You are acting as a Fix Validation Agent for a QA workflow.
@@ -71,7 +71,7 @@ jobs:
 
           Do not modify any other files.
           EOF
-          
+
       - name: Commit fetched ticket + diff back to the repo
         run: |
           git config user.name "qa-automation-bot"
@@ -87,4 +87,4 @@ jobs:
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         run: |
           echo "QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/${{ github.event.client_payload.issue_key }}_diff.txt and jira_context/${{ github.event.client_payload.issue_key }}_live.md)." > reports/notify.md
-          python post_jira_comment.py ${{ github.event.client_payload.issue_key }} reports/notify.md
+          python post_jira_comment.py ${{ github.event.client_payload.issue_key }} reports/notify.mds
