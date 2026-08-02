@@ -102,7 +102,8 @@ def register_printer(
     printer.cloud_id = _generate_cloud_id()
     
     printer.printer_email_id = _generate_printer_email_id()
-    printer.claim_code = _generate_claim_code()
+    if printer.status != PrinterStatus.CLAIMED:
+        printer.claim_code = _generate_claim_code()
   
     printer.log(f"Cloud identity created: {printer.cloud_id}")
 
