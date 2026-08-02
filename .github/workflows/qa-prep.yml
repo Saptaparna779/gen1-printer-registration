@@ -37,7 +37,7 @@ jobs:
           if [ -z "$FIX_COMMIT" ]; then
             echo "No commit found on main mentioning ${{ github.event.client_payload.issue_key }} (excluding bot commits)" > reports/${{ github.event.client_payload.issue_key }}_diff.txt
           else
-            git diff ${FIX_COMMIT}^ ${FIX_COMMIT} -- app/ > reports/${{ github.event.client_payload.issue_key }}_diff.txt
+            git diff ${FIX_COMMIT}^ ${FIX_COMMIT} -- app/ tests/ > reports/${{ github.event.client_payload.issue_key }}_diff.txt
           fi
 
       - name: Generate the Copilot validation prompt
