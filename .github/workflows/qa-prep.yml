@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,12 +30,15 @@ jobs:
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         run: python fetch_jira_ticket.py ${{ github.event.client_payload.issue_key }}
 
-      - name: Generate diff against the fix branch
+      - name: Generate diff by searching commit history for the issue key
         run: |
           mkdir -p reports
-          git fetch origin ${{ github.event.client_payload.branch }}
-          FIX_COMMIT=$(git rev-parse origin/${{ github.event.client_payload.branch }})
-          git diff ${FIX_COMMIT}^ ${FIX_COMMIT} -- app/ > reports/${{ github.event.client_payload.issue_key }}_diff.txt
+          FIX_COMMIT=$(git log origin/main --grep="${{ github.event.client_payload.issue_key }}" --format=%H -1)
+          if [ -z "$FIX_COMMIT" ]; then
+            echo "No commit found on main mentioning ${{ github.event.client_payload.issue_key }}" > reports/${{ github.event.client_payload.issue_key }}_diff.txt
+          else
+            git diff ${FIX_COMMIT}^ ${FIX_COMMIT} -- app/ > reports/${{ github.event.client_payload.issue_key }}_diff.txt
+          fi
 
       - name: Generate the Copilot validation prompt
         run: |
