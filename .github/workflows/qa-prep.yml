@@ -33,9 +33,9 @@ jobs:
       - name: Generate diff by searching commit history for the issue key
         run: |
           mkdir -p reports
-          FIX_COMMIT=$(git log origin/main --grep="${{ github.event.client_payload.issue_key }}" --format=%H -1)
+          FIX_COMMIT=$(git log origin/main --grep="${{ github.event.client_payload.issue_key }}" --format="%H|%an" | grep -v "qa-automation-bot" | head -1 | cut -d'|' -f1)
           if [ -z "$FIX_COMMIT" ]; then
-            echo "No commit found on main mentioning ${{ github.event.client_payload.issue_key }}" > reports/${{ github.event.client_payload.issue_key }}_diff.txt
+            echo "No commit found on main mentioning ${{ github.event.client_payload.issue_key }} (excluding bot commits)" > reports/${{ github.event.client_payload.issue_key }}_diff.txt
           else
             git diff ${FIX_COMMIT}^ ${FIX_COMMIT} -- app/ > reports/${{ github.event.client_payload.issue_key }}_diff.txt
           fi
