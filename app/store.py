@@ -1,4 +1,4 @@
-"""
+﻿"""
 In-memory data store standing in for the real GEN 1 printer/cloud-identity
 database. Kept intentionally dumb (dict-backed) since this is a demo
 environment, not a production data layer.
@@ -15,20 +15,16 @@ _capabilities: Dict[str, PrinterCapabilities] = {}
 # serial_number -> printer_id  (only for ACTIVE/REGISTERED printers)
 _serial_index: Dict[str, str] = {}
 
+# printer_email_id -> printer_id
 _email_index: Dict[str, str] = {}
 
-def index_email(email: str, printer_id: str) -> None:
-    _email_index[email] = printer_id
 
-def get_printer_by_email(email: str):
-    printer_id = _email_index.get(email)
-    return _printers.get(printer_id) if printer_id else None
-    
 def reset() -> None:
     """Wipe the store. Used between tests / demo runs."""
     _printers.clear()
     _capabilities.clear()
     _serial_index.clear()
+    _email_index.clear()
 
 
 def save_printer(printer: Printer) -> None:
@@ -52,6 +48,21 @@ def index_serial(serial_number: str, printer_id: str) -> None:
 
 def remove_serial_index(serial_number: str) -> None:
     _serial_index.pop(serial_number, None)
+
+
+def get_printer_by_email(email: str) -> Optional[Printer]:
+    printer_id = _email_index.get(email)
+    if printer_id is None:
+        return None
+    return _printers.get(printer_id)
+
+
+def index_email(email: str, printer_id: str) -> None:
+    _email_index[email] = printer_id
+
+
+def email_in_use(email: str) -> bool:
+    return email in _email_index
 
 
 def delete_printer(printer_id: str) -> None:

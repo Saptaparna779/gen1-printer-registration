@@ -65,3 +65,34 @@ def test_claim_printer_rejects_already_claimed_printer():
 
     with pytest.raises(registration.InvalidClaimCodeError):
         registration.claim_printer(printer.claim_code.code, user_id="user-456")
+
+
+def test_printer_email_id_is_unique_across_printers():
+    p1 = registration.register_printer(
+        serial_number="SN-0005",
+        model_number="HP-LJ-2055",
+        firmware_version="1.0.0",
+    )
+    p2 = registration.register_printer(
+        serial_number="SN-0006",
+        model_number="HP-LJ-2055",
+        firmware_version="1.0.0",
+    )
+    assert p1.printer_email_id != p2.printer_email_id
+    assert store.get_printer_by_email(p1.printer_email_id).printer_id == p1.printer_id
+
+
+def test_generate_printer_email_id_retries_on_collision(monkeypatch):
+    calls = {"count": 0}
+    fixed_slug = "abcdefghij"
+
+    def fake_choices(pool, k):
+        calls["count"] += 1
+        return list(fixed_slug) if calls["count"] == 1 else list("zzzzzzzzzz")
+
+    store.index_email(f"{fixed_slug}@print.hpeprint.com", "existing-printer-id")
+    monkeypatch.setattr(registration.random, "choices", fake_choices)
+
+    new_email = registration._generate_printer_email_id()
+    assert new_email == "zzzzzzzzzz@print.hpeprint.com"
+    assert calls["count"] == 2

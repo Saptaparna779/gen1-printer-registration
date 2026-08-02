@@ -36,8 +36,11 @@ def _generate_cloud_id() -> str:
 
 
 def _generate_printer_email_id() -> str:
-    slug = "".join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    return f"{slug}@print.hpeprint.com"
+    while True:
+        slug = "".join(random.choices(string.ascii_lowercase + string.digits, k=10))
+        email = f"{slug}@print.hpeprint.com"
+        if not store.email_in_use(email):
+            return email
 
 
 def _generate_claim_code() -> ClaimCode:
@@ -102,6 +105,7 @@ def register_printer(
     printer.cloud_id = _generate_cloud_id()
 
     printer.printer_email_id = _generate_printer_email_id()
+    store.index_email(printer.printer_email_id, printer_id)
     if printer.status != PrinterStatus.CLAIMED:
         printer.claim_code = _generate_claim_code()
 
