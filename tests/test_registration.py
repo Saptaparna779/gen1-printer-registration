@@ -96,3 +96,12 @@ def test_generate_printer_email_id_retries_on_collision(monkeypatch):
     new_email = registration._generate_printer_email_id()
     assert new_email == "zzzzzzzzzz@print.hpeprint.com"
     assert calls["count"] == 2
+
+
+def test_register_printer_rejects_whitespace_only_fields():
+    with pytest.raises(registration.RegistrationError):
+        registration.register_printer(
+            serial_number="   ",
+            model_number="HP-LJ-2055",
+            firmware_version="1.0.0",
+        )

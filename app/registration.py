@@ -81,7 +81,7 @@ def register_printer(
     Returns the resulting Printer record on success.
     Raises RegistrationError on failure (after rolling back partial state).
     """
-    if not serial_number or not model_number or not firmware_version:
+    if not serial_number.strip() or not model_number.strip() or not firmware_version.strip():
         raise RegistrationError("serial_number, model_number and firmware_version are required")
 
     existing = store.get_printer_by_serial(serial_number)
