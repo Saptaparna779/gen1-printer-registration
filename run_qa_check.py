@@ -60,39 +60,10 @@ def main():
                 "be on PATH) -- please open it manually in VS Code."
             )
 
-    prompt = f"""You are acting as a Fix Validation Agent for a QA workflow.
-
-Using:
-- The live ticket details in {issue_key}_live.md
-- The code diff in {issue_key}_diff.txt
-- The business rules in business_rules.md
-- The scoring rubric in confidence_rubric.md
-
-Do the following:
-1. Check whether the diff satisfies EVERY acceptance criterion listed in
-   the ticket. Go through them one by one.
-2. Assess whether the fix addresses the root cause described in the
-   business rules, or only the specific symptom in the "Steps to
-   Reproduce" section.
-3. Note any obvious regression risk introduced by this diff.
-4. Apply the confidence rubric and give a single numeric score (0-100)
-   with a one-line justification for that score.
-5. Write your full findings to a new file: reports/{issue_key}_validation_report.md
-   Format it as:
-
-   # Validation Report: {issue_key}
-   ## Acceptance Criteria Check
-   (one line per criterion: met / not met / partially met, with reasoning)
-   ## Root Cause Assessment
-   (your analysis)
-   ## Regression Risk
-   (your analysis)
-   ## Confidence Score
-   Score: X/100
-   Justification: ...
-
-Do not modify any other files.
-"""
+    template_path = os.path.join("docs", "validation_prompt_template.md")
+    with open(template_path, "r", encoding="utf-8") as f:
+        template = f.read()
+    prompt = template.replace("{{ISSUE_KEY}}", issue_key)
 
     prompt_path = os.path.join("reports", f"{issue_key}_copilot_prompt.txt")
     with open(prompt_path, "w", encoding="utf-8") as f:
