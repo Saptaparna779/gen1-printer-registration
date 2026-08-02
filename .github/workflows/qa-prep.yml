@@ -37,40 +37,7 @@ jobs:
 
       - name: Generate the Copilot validation prompt
         run: |
-          cat > reports/${{ github.event.client_payload.issue_key }}_copilot_prompt.txt << 'EOF'
-          You are acting as a Fix Validation Agent for a QA workflow.
-
-          Using:
-          - The live ticket details in ${{ github.event.client_payload.issue_key }}_live.md
-          - The code diff in ${{ github.event.client_payload.issue_key }}_diff.txt
-          - The business rules in business_rules.md
-          - The scoring rubric in confidence_rubric.md
-
-          Do the following:
-          1. Check whether the diff satisfies EVERY acceptance criterion listed in
-             the ticket. Go through them one by one.
-          2. Assess whether the fix addresses the root cause described in the
-             business rules, or only the specific symptom in the "Steps to
-             Reproduce" section.
-          3. Note any obvious regression risk introduced by this diff.
-          4. Apply the confidence rubric and give a single numeric score (0-100)
-             with a one-line justification for that score.
-          5. Write your full findings to a new file: reports/${{ github.event.client_payload.issue_key }}_validation_report.md
-             Format it as:
-
-             # Validation Report: ${{ github.event.client_payload.issue_key }}
-             ## Acceptance Criteria Check
-             (one line per criterion: met / not met / partially met, with reasoning)
-             ## Root Cause Assessment
-             (your analysis)
-             ## Regression Risk
-             (your analysis)
-             ## Confidence Score
-             Score: X/100
-             Justification: ...
-
-          Do not modify any other files.
-          EOF
+          sed 's/{{ISSUE_KEY}}/${{ github.event.client_payload.issue_key }}/g' docs/validation_prompt_template.md > reports/${{ github.event.client_payload.issue_key }}_copilot_prompt.txt
 
       - name: Commit fetched ticket + diff back to the repo
         run: |
