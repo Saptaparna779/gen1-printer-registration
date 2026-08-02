@@ -18,3 +18,5 @@ Existing registration behavior is otherwise unaffected.
 Impact: Medium -- collision could cause Email-to-Print jobs to be
 misdelivered to the wrong printer.
 
+## Comments
+- **Saptaparna Dasgupta:** QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/GOAR-9_diff.txt and jira_context/GOAR-9_live.md).
