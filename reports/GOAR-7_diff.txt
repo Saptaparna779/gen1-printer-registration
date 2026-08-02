@@ -1,0 +1,43 @@
+diff --git a/app/registration.py b/app/registration.py
+index 41c6944..f24356c 100644
+--- a/app/registration.py
++++ b/app/registration.py
+@@ -83,15 +83,19 @@ def register_printer(
+ 
+     existing = store.get_printer_by_serial(serial_number)
+ 
+-    printer_id = existing.printer_id if existing else str(uuid.uuid4())
+-
+-    printer = Printer(
+-        printer_id=printer_id,
+-        serial_number=serial_number,
+-        model_number=model_number,
+-        firmware_version=firmware_version,
+-        status=PrinterStatus.PENDING,
+-    )
++    if existing:
++        printer = existing
++        printer.model_number = model_number
++        printer.firmware_version = firmware_version
++    else:
++        printer = Printer(
++            printer_id=str(uuid.uuid4()),
++            serial_number=serial_number,
++            model_number=model_number,
++            firmware_version=firmware_version,
++            status=PrinterStatus.PENDING,
++        )
++    printer_id = printer.printer_id
+     printer.log("Registration started")
+ 
+     # Step 1: Cloud identity
+@@ -126,7 +130,8 @@ def register_printer(
+         _rollback_registration(printer)
+         raise RegistrationError(str(exc)) from exc
+ 
+-    printer.status = PrinterStatus.REGISTERED
++    if printer.status != PrinterStatus.CLAIMED:
++        printer.status = PrinterStatus.REGISTERED  
+     printer.log("Welcome page printed successfully; registration complete")
+     store.save_printer(printer)
+     store.index_serial(serial_number, printer_id)
