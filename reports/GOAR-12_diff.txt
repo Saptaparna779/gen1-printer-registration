@@ -1,0 +1,41 @@
+diff --git a/app/registration.py b/app/registration.py
+index 830574f..75c018a 100644
+--- a/app/registration.py
++++ b/app/registration.py
+@@ -119,8 +119,9 @@ def register_printer(
+     printer.log("Capabilities captured")
+ 
+     # Step 3: XMPP connectivity
+-    printer.xmpp_node = assign_xmpp_node(printer_id)
+-    printer.log(f"XMPP node assigned: {printer.xmpp_node}")
++    if not printer.xmpp_node:
++        printer.xmpp_node = assign_xmpp_node(printer_id)
++        printer.log(f"XMPP node assigned: {printer.xmpp_node}")
+     store.save_printer(printer)
+ 
+     # Step 4: Welcome / Info page -- final checkpoint
+diff --git a/tests/test_registration.py b/tests/test_registration.py
+index 3637c86..1eabfd1 100644
+--- a/tests/test_registration.py
++++ b/tests/test_registration.py
+@@ -105,3 +105,20 @@ def test_register_printer_rejects_whitespace_only_fields():
+             model_number="HP-LJ-2055",
+             firmware_version="1.0.0",
+         )
++
++
++def test_xmpp_node_not_reassigned_on_reregistration():
++    p1 = registration.register_printer(
++        serial_number="SN-0007",
++        model_number="HP-LJ-2055",
++        firmware_version="1.0.0",
++    )
++    original_node = p1.xmpp_node
++
++    p2 = registration.register_printer(
++        serial_number="SN-0007",
++        model_number="HP-LJ-2055",
++        firmware_version="1.0.1",
++    )
++
++    assert p2.xmpp_node == original_node
