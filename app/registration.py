@@ -173,6 +173,9 @@ def claim_printer(claim_code: str, user_id: str) -> Printer:
     if target.status == PrinterStatus.CLAIMED:
         raise InvalidClaimCodeError("Printer is already claimed")
 
+    if datetime.utcnow() > target.claim_code.expires_at:
+        raise InvalidClaimCodeError("Claim code has expired")
+
     if target.claim_code.used:
         raise InvalidClaimCodeError("Claim code has already been used")
 

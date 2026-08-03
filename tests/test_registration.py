@@ -138,3 +138,18 @@ def test_registration_history_distinguishes_reregistration():
         firmware_version="1.0.1",
     )
     assert any("Re-registration started" in entry for entry in p2.registration_history)
+
+
+def test_claim_printer_rejects_expired_claim_code():
+    from datetime import datetime, timedelta
+    printer = registration.register_printer(
+        serial_number="SN-2000",
+        model_number="HP-LJ-2055",
+        firmware_version="1.0.0",
+    )
+    printer.claim_code.expires_at = datetime.utcnow() - timedelta(minutes=1)
+
+    with pytest.raises(registration.InvalidClaimCodeError):
+        registration.claim_printer(printer.claim_code.code, user_id="user-789")
+
+    assert printer.status != "CLAIMED"
