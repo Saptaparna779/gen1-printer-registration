@@ -99,7 +99,7 @@ def register_printer(
             status=PrinterStatus.PENDING,
         )
     printer_id = printer.printer_id
-    printer.log("Registration started")
+    printer.log("Re-registration started" if existing else "Registration started")
 
     # Step 1: Cloud identity
     printer.cloud_id = _generate_cloud_id()
