@@ -44,6 +44,10 @@ jobs:
         run: |
           sed 's/{{ISSUE_KEY}}/${{ github.event.client_payload.issue_key }}/g' docs/validation_prompt_template.md > reports/${{ github.event.client_payload.issue_key }}_copilot_prompt.txt
 
+      - name: Generate the test generation prompt
+        run: |
+          sed 's/{{ISSUE_KEY}}/${{ github.event.client_payload.issue_key }}/g' docs/test_generation_prompt_template.md > reports/${{ github.event.client_payload.issue_key }}_test_generation_prompt.txt
+
       - name: Commit fetched ticket + diff back to the repo
         run: |
           git config user.name "qa-automation-bot"
