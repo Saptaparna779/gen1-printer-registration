@@ -196,6 +196,9 @@ def deregister_printer(printer_id: str) -> None:
     if printer is None:
         raise RegistrationError(f"No printer found with id {printer_id}")
 
+    if printer.claim_code:
+        printer.claim_code.used = True
+
     store.delete_capabilities(printer_id)
     store.remove_serial_index(printer.serial_number)
     store.delete_printer(printer_id)
