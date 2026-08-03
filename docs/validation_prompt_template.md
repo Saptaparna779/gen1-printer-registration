@@ -5,6 +5,10 @@ Using:
 - The code diff in {{ISSUE_KEY}}_diff.txt
 - The business rules in business_rules.md
 - The scoring rubric in confidence_rubric.md
+- The actual pytest execution output in {{ISSUE_KEY}}_test_results.txt,
+  if present -- this is REAL, EXECUTED evidence (ground truth), not just
+  test source code. Treat it as authoritative over any inference you
+  might otherwise make from reading test files alone.
 
 Important notes before you begin:
 - Do NOT attempt to run tests or shell commands (e.g. pytest) yourself to
@@ -17,6 +21,12 @@ Important notes before you begin:
   techniques (fabricated IDs, patched functions, fake test fixtures used
   only within test setup) as valid, intentional test design -- do not
   flag mock/fake identifiers as placeholder or incomplete code.
+- If {{ISSUE_KEY}}_test_results.txt is MISSING, or shows any failing
+  tests, you must NOT score above 60/100 regardless of how correct the
+  diff looks by inspection, and you must clearly state in your
+  Justification that no (or incomplete) execution evidence was provided.
+  A diff that "looks right" is not equivalent to a diff that has been
+  proven to work by an actual test run.
 
 Do the following:
 1. Check whether the diff satisfies EVERY acceptance criterion listed in
@@ -25,20 +35,26 @@ Do the following:
    business rules, or only the specific symptom in the "Steps to
    Reproduce" section.
 3. Note any obvious regression risk introduced by this diff.
-4. Apply the confidence rubric and give a single numeric score (0-100)
+4. Summarize the test execution evidence: which specific tests ran, and
+   whether they passed or failed, citing {{ISSUE_KEY}}_test_results.txt
+   directly. If that file is absent, say so explicitly.
+5. Apply the confidence rubric and give a single numeric score (0-100)
    with a one-line justification for that score.
-5. Regardless of the score, identify the SPECIFIC, concrete gap(s)
+6. Regardless of the score, identify the SPECIFIC, concrete gap(s)
    preventing a full 100/100 score -- e.g. a missing regression test, an
    ambiguous edge case not covered, a criterion only partially verified.
    Be specific and actionable (name the exact test or check needed), not
    vague ("could be more thorough"). If the score is already 100, state
    explicitly that no gaps were identified.
-6. Write your full findings to a new file: reports/{{ISSUE_KEY}}_validation_report.md
+7. Write your full findings to a new file: reports/{{ISSUE_KEY}}_validation_report.md
    Format it as:
 
    # Validation Report: {{ISSUE_KEY}}
    ## Acceptance Criteria Check
    (one line per criterion: met / not met / partially met, with reasoning)
+   ## Test Execution Evidence
+   (cite specific test names and pass/fail status from the test results
+   file; explicitly state if no execution evidence was provided)
    ## Root Cause Assessment
    (your analysis)
    ## Regression Risk

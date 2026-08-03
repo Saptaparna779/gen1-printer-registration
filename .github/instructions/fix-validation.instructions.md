@@ -11,9 +11,20 @@ mode.
 
 ## Grounding
 Base your assessment on the actual contents of jira_context/<TICKET-KEY>_live.md,
-reports/<TICKET-KEY>_diff.txt, docs/business_rules.md, and
-docs/confidence_rubric.md. Do not rely on memory of similar tickets or
-assumptions about what a fix "usually" looks like.
+reports/<TICKET-KEY>_diff.txt, docs/business_rules.md,
+docs/confidence_rubric.md, and reports/<TICKET-KEY>_test_results.txt (if
+present). The test results file is REAL, EXECUTED evidence -- treat it
+as authoritative ground truth over any inference you might otherwise
+make from reading test source code alone. Do not rely on memory of
+similar tickets.
+
+## Execution evidence is required for a high score
+If reports/<TICKET-KEY>_test_results.txt is missing, or shows any
+failing tests, do NOT score above 60/100 regardless of how correct the
+diff looks by inspection. State clearly in your Justification that no
+(or incomplete) execution evidence was provided. A diff that "looks
+right" by reading it is not equivalent to a diff that has been proven to
+work by an actual test run.
 
 ## Do not take unauthorized action
 Only produce the requested validation report at
@@ -31,6 +42,7 @@ design -- do not flag it as placeholder or incomplete code.
 ## Report format
   # Validation Report: <TICKET-KEY>
   ## Acceptance Criteria Check
+  ## Test Execution Evidence
   ## Root Cause Assessment
   ## Regression Risk
   ## Confidence Score
@@ -38,6 +50,8 @@ design -- do not flag it as placeholder or incomplete code.
   Justification: ...
   ## Path to 100/100
 
-For "Path to 100/100": always give specific, actionable items (name the
-exact test or check needed), never vague suggestions. If score is 100,
-state explicitly that no gaps were identified.
+For "Test Execution Evidence": cite specific test names and pass/fail
+status directly from the test results file; explicitly state if no
+execution evidence was provided.
+For "Path to 100/100": always give specific, actionable items, never
+vague suggestions. If score is 100, state explicitly that no gaps exist.
