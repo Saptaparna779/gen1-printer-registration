@@ -122,3 +122,19 @@ def test_xmpp_node_not_reassigned_on_reregistration():
     )
 
     assert p2.xmpp_node == original_node
+
+
+def test_registration_history_distinguishes_reregistration():
+    p1 = registration.register_printer(
+        serial_number="SN-1000",
+        model_number="HP-LJ-2055",
+        firmware_version="1.0.0",
+    )
+    assert "Registration started" in p1.registration_history[0]
+
+    p2 = registration.register_printer(
+        serial_number="SN-1000",
+        model_number="HP-LJ-2055",
+        firmware_version="1.0.1",
+    )
+    assert any("Re-registration started" in entry for entry in p2.registration_history)
