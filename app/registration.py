@@ -119,8 +119,9 @@ def register_printer(
     printer.log("Capabilities captured")
 
     # Step 3: XMPP connectivity
-    printer.xmpp_node = assign_xmpp_node(printer_id)
-    printer.log(f"XMPP node assigned: {printer.xmpp_node}")
+    if not printer.xmpp_node:
+        printer.xmpp_node = assign_xmpp_node(printer_id)
+        printer.log(f"XMPP node assigned: {printer.xmpp_node}")
     store.save_printer(printer)
 
     # Step 4: Welcome / Info page -- final checkpoint
