@@ -105,3 +105,20 @@ def test_register_printer_rejects_whitespace_only_fields():
             model_number="HP-LJ-2055",
             firmware_version="1.0.0",
         )
+
+
+def test_xmpp_node_not_reassigned_on_reregistration():
+    p1 = registration.register_printer(
+        serial_number="SN-0007",
+        model_number="HP-LJ-2055",
+        firmware_version="1.0.0",
+    )
+    original_node = p1.xmpp_node
+
+    p2 = registration.register_printer(
+        serial_number="SN-0007",
+        model_number="HP-LJ-2055",
+        firmware_version="1.0.1",
+    )
+
+    assert p2.xmpp_node == original_node
