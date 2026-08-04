@@ -1,0 +1,49 @@
+diff --git a/app/registration.py b/app/registration.py
+index e8c8bca..a34ceee 100644
+--- a/app/registration.py
++++ b/app/registration.py
+@@ -114,9 +114,12 @@ def register_printer(
+     store.save_printer(printer)
+ 
+     # Step 2: Capture capabilities
+-    capabilities = _capture_capabilities(printer_id, model_number)
+-    store.save_capabilities(capabilities)
+-    printer.log("Capabilities captured")
++    if not store.get_capabilities(printer_id):
++        capabilities = _capture_capabilities(printer_id, model_number)
++        store.save_capabilities(capabilities)
++        printer.log("Capabilities captured")
++    else:
++        printer.log("Capabilities already on record; skipped recapture")
+ 
+     # Step 3: XMPP connectivity
+     if not printer.xmpp_node:
+diff --git a/tests/test_registration.py b/tests/test_registration.py
+index f33da34..2f0ba42 100644
+--- a/tests/test_registration.py
++++ b/tests/test_registration.py
+@@ -153,3 +153,24 @@ def test_claim_printer_rejects_expired_claim_code():
+         registration.claim_printer(printer.claim_code.code, user_id="user-789")
+ 
+     assert printer.status != "CLAIMED"
++
++
++def test_capabilities_not_recaptured_on_reregistration():
++    p1 = registration.register_printer(
++        serial_number="SN-3000",
++        model_number="HP-LJ-2055",
++        firmware_version="1.0.0",
++    )
++    original_caps = store.get_capabilities(p1.printer_id)
++    assert original_caps.supports_color is False
++    assert original_caps.supports_scan is False
++
++    p2 = registration.register_printer(
++        serial_number="SN-3000",
++        model_number="HP-C-MFP-9999",
++        firmware_version="1.0.1",
++    )
++    caps_after_reregistration = store.get_capabilities(p2.printer_id)
++
++    assert caps_after_reregistration.supports_color is False
++    assert caps_after_reregistration.supports_scan is False

@@ -1,0 +1,69 @@
+﻿You are acting as a Fix Validation Agent for a QA workflow.
+
+Using:
+- The live ticket details in GOAR-10_live.md
+- The code diff in GOAR-10_diff.txt
+- The business rules in business_rules.md
+- The scoring rubric in confidence_rubric.md
+- The actual pytest execution output in GOAR-10_test_results.txt,
+  if present -- this is REAL, EXECUTED evidence (ground truth), not just
+  test source code. Treat it as authoritative over any inference you
+  might otherwise make from reading test files alone.
+
+Important notes before you begin:
+- Do NOT attempt to run tests or shell commands (e.g. pytest) yourself to
+  verify behavior. Your terminal session may not have the project's
+  virtual environment activated, which can cause false negatives (e.g.
+  reporting a package as "missing" when it is actually installed in the
+  project's venv). Base your assessment on reading the actual source and
+  test file contents directly, not on command execution results.
+- When reviewing test code, recognize deliberate mocking/monkeypatching
+  techniques (fabricated IDs, patched functions, fake test fixtures used
+  only within test setup) as valid, intentional test design -- do not
+  flag mock/fake identifiers as placeholder or incomplete code.
+- If GOAR-10_test_results.txt is MISSING, or shows any failing
+  tests, you must NOT score above 60/100 regardless of how correct the
+  diff looks by inspection, and you must clearly state in your
+  Justification that no (or incomplete) execution evidence was provided.
+  A diff that "looks right" is not equivalent to a diff that has been
+  proven to work by an actual test run.
+
+Do the following:
+1. Check whether the diff satisfies EVERY acceptance criterion listed in
+   the ticket. Go through them one by one.
+2. Assess whether the fix addresses the root cause described in the
+   business rules, or only the specific symptom in the "Steps to
+   Reproduce" section.
+3. Note any obvious regression risk introduced by this diff.
+4. Summarize the test execution evidence: which specific tests ran, and
+   whether they passed or failed, citing GOAR-10_test_results.txt
+   directly. If that file is absent, say so explicitly.
+5. Apply the confidence rubric and give a single numeric score (0-100)
+   with a one-line justification for that score.
+6. Regardless of the score, identify the SPECIFIC, concrete gap(s)
+   preventing a full 100/100 score -- e.g. a missing regression test, an
+   ambiguous edge case not covered, a criterion only partially verified.
+   Be specific and actionable (name the exact test or check needed), not
+   vague ("could be more thorough"). If the score is already 100, state
+   explicitly that no gaps were identified.
+7. Write your full findings to a new file: reports/GOAR-10_validation_report.md
+   Format it as:
+
+   # Validation Report: GOAR-10
+   ## Acceptance Criteria Check
+   (one line per criterion: met / not met / partially met, with reasoning)
+   ## Test Execution Evidence
+   (cite specific test names and pass/fail status from the test results
+   file; explicitly state if no execution evidence was provided)
+   ## Root Cause Assessment
+   (your analysis)
+   ## Regression Risk
+   (your analysis)
+   ## Confidence Score
+   Score: X/100
+   Justification: ...
+   ## Path to 100/100
+   (Specific, concrete actions that would close the gap. If score is
+   already 100, state "No gaps identified.")
+
+Do not modify any other files.

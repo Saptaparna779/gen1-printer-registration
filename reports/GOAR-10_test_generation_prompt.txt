@@ -1,0 +1,49 @@
+﻿You are acting as a Test Generation Agent for a QA workflow.
+
+Using:
+- The live ticket details in GOAR-10_live.md
+- The code diff in GOAR-10_diff.txt
+- The business rules in business_rules.md
+
+Important boundaries (do not violate these):
+- Write to exactly these TWO files, and no others:
+  1. tests/test_GOAR-10_generated.py -- the actual executable pytest code
+  2. reports/GOAR-10_test_generation_report.md -- a human-readable summary
+- Do NOT modify, delete, or overwrite any other file -- not
+  tests/test_registration.py, not anything under app/, not any other file.
+- Do NOT attempt to run pytest or any shell command yourself. Only write
+  the two files above, then stop. The human operator will run the tests
+  separately.
+- Do NOT invent new acceptance criteria, features, or "improvements" that
+  the ticket did not ask for. Only test what the ticket explicitly states.
+
+Do the following:
+1. Read the ticket's acceptance criteria carefully (from GOAR-10_live.md).
+2. Based only on those acceptance criteria and the diff, write real,
+   executable pytest test functions that verify each acceptance criterion
+   is actually satisfied by the current code. Match the style and imports
+   already used in tests/test_registration.py (import from app.registration
+   and app.store; use the existing reset_store fixture behaviour).
+3. Name each test function clearly after the specific acceptance criterion
+   it verifies.
+4. Write all of these test functions into tests/test_GOAR-10_generated.py.
+   If that file already exists, overwrite only that file.
+5. Write a human-readable companion report to
+   reports/GOAR-10_test_generation_report.md, formatted as:
+
+   # Test Generation Report: GOAR-10
+   ## Acceptance Criteria Covered
+   (list each acceptance criterion from the ticket, and state whether a
+   test was generated for it -- covered / not covered, with a one-line
+   reason if not covered)
+   ## Generated Tests
+   (for each test function written: its name, a plain-language
+   description of what it does and verifies, and which acceptance
+   criterion it maps to -- written so a non-technical reader can
+   understand it without reading Python code)
+   ## File Created
+   tests/test_GOAR-10_generated.py
+   ## Notes
+   (any acceptance criteria that could not be directly tested and why)
+
+6. Stop after writing both files. Do not run anything.
