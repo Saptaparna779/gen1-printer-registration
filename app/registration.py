@@ -114,9 +114,12 @@ def register_printer(
     store.save_printer(printer)
 
     # Step 2: Capture capabilities
-    capabilities = _capture_capabilities(printer_id, model_number)
-    store.save_capabilities(capabilities)
-    printer.log("Capabilities captured")
+    if not store.get_capabilities(printer_id):
+        capabilities = _capture_capabilities(printer_id, model_number)
+        store.save_capabilities(capabilities)
+        printer.log("Capabilities captured")
+    else:
+        printer.log("Capabilities already on record; skipped recapture")
 
     # Step 3: XMPP connectivity
     if not printer.xmpp_node:
