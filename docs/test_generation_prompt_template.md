@@ -6,12 +6,14 @@ Using:
 - The business rules in business_rules.md
 
 Important boundaries (do not violate these):
-- Write ALL generated tests into exactly ONE new file:
-  tests/test_{{ISSUE_KEY}}_generated.py
+- Write to exactly these TWO files, and no others:
+  1. tests/test_{{ISSUE_KEY}}_generated.py -- the actual executable pytest code
+  2. reports/{{ISSUE_KEY}}_test_generation_report.md -- a human-readable summary
 - Do NOT modify, delete, or overwrite any other file -- not
   tests/test_registration.py, not anything under app/, not any other file.
 - Do NOT attempt to run pytest or any shell command yourself. Only write
-  the file, then stop. The human operator will run the tests separately.
+  the two files above, then stop. The human operator will run the tests
+  separately.
 - Do NOT invent new acceptance criteria, features, or "improvements" that
   the ticket did not ask for. Only test what the ticket explicitly states.
 
@@ -24,6 +26,24 @@ Do the following:
    and app.store; use the existing reset_store fixture behaviour).
 3. Name each test function clearly after the specific acceptance criterion
    it verifies.
-4. Write all of these test functions into tests/test_{{ISSUE_KEY}}_generated.py
-   only. If that file already exists, overwrite only that file, nothing else.
-5. Stop after writing the file. Do not run anything.
+4. Write all of these test functions into tests/test_{{ISSUE_KEY}}_generated.py.
+   If that file already exists, overwrite only that file.
+5. Write a human-readable companion report to
+   reports/{{ISSUE_KEY}}_test_generation_report.md, formatted as:
+
+   # Test Generation Report: {{ISSUE_KEY}}
+   ## Acceptance Criteria Covered
+   (list each acceptance criterion from the ticket, and state whether a
+   test was generated for it -- covered / not covered, with a one-line
+   reason if not covered)
+   ## Generated Tests
+   (for each test function written: its name, a plain-language
+   description of what it does and verifies, and which acceptance
+   criterion it maps to -- written so a non-technical reader can
+   understand it without reading Python code)
+   ## File Created
+   tests/test_{{ISSUE_KEY}}_generated.py
+   ## Notes
+   (any acceptance criteria that could not be directly tested and why)
+
+6. Stop after writing both files. Do not run anything.
