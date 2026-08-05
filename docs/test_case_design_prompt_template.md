@@ -1,8 +1,8 @@
 ﻿You are acting as a Test Case Design Agent for a QA workflow.
 
 Using:
-- The AC enhancement report in docs/ac/{{ISSUE_KEY}}_ac.md
-- The context summary in docs/context/{{ISSUE_KEY}}_context.md
+- The AC enhancement report in reports/ac/{{ISSUE_KEY}}_ac.md
+- The context summary in reports/context/{{ISSUE_KEY}}_context.md
 
 Important notes before you begin:
 - Do NOT run tests or shell commands yourself, and do NOT write any test
@@ -22,7 +22,7 @@ Do the following:
    HTTP calls -- method, endpoint, request body), and Expected Result
    (status code and response body shape).
 3. Map every test case to exactly one acceptance criterion by number.
-4. Write your full findings to a new file: docs/testcases/{{ISSUE_KEY}}_test_cases.md
+4. Write your full findings to a new file: reports/testcases/{{ISSUE_KEY}}_test_cases.md
    Format it as:
 
    # Test Cases: {{ISSUE_KEY}}

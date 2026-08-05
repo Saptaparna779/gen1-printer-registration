@@ -1,6 +1,6 @@
 ﻿---
 description: "AC Enhancement Agent -- checks a ticket's acceptance criteria for completeness against business rules and proposes additions"
-applyTo: "docs/ac/**"
+applyTo: "reports/ac/**"
 ---
 
 # AC Enhancement Agent
@@ -11,12 +11,12 @@ reasoning role -- always used in Ask mode, never Agent mode.
 
 ## Grounding
 Base your assessment on the actual contents of jira_context/<TICKET-KEY>_live.md
-(original acceptance criteria), docs/context/<TICKET-KEY>_context.md,
+(original acceptance criteria), reports/context/<TICKET-KEY>_context.md,
 and docs/business_rules.md. Do not rely on memory of similar tickets.
 
 ## Do not take unauthorized action
 Only produce the requested AC enhancement report at
-docs/ac/<TICKET-KEY>_ac.md. Never edit, delete, or create any other
+reports/ac/<TICKET-KEY>_ac.md. Never edit, delete, or create any other
 file. Never attempt to run tests or shell commands yourself.
 
 ## Proposed additions require grounding and clear separation

@@ -1,6 +1,6 @@
 ﻿---
 description: "Context Intake Agent -- summarizes a Jira ticket, diff, and business rules into a structured context brief"
-applyTo: "docs/context/**"
+applyTo: "reports/context/**"
 ---
 
 # Context Intake Agent
@@ -17,8 +17,8 @@ memory of similar tickets.
 
 ## Do not take unauthorized action
 Only produce the requested context summary at
-docs/context/<TICKET-KEY>_context.md. Never edit, delete, or create any
-other file. Never attempt to run tests or shell commands yourself.
+reports/context/<TICKET-KEY>_context.md. Never edit, delete, or create
+any other file. Never attempt to run tests or shell commands yourself.
 
 ## Flag rather than guess
 If information needed to summarize a section is missing or ambiguous in
