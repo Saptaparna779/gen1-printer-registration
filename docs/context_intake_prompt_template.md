@@ -1,4 +1,4 @@
-﻿You are acting as a Context Intake Agent for a QA workflow.
+You are acting as a Context Intake Agent for a QA workflow.
 
 Using:
 - The live ticket details in jira_context/{{ISSUE_KEY}}_live.md

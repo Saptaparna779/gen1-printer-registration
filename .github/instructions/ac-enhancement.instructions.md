@@ -38,3 +38,6 @@ For "Proposed Additions": each item must cite the business rule or
 edge-case category it addresses.
 For "Flagged Conflicts": cite the specific business rule any original
 criterion conflicts with, or state "None identified."
+
+## Strict file boundary
+Write to exactly ONE file: reports/ac/<TICKET-KEY>_ac.md. Do not modify, delete, or create any other file in this repository, for any reason.

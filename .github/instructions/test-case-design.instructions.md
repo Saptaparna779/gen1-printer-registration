@@ -37,3 +37,6 @@ not an internal Python function call.
   (repeat per test case)
 
 Every test case must map to exactly one acceptance criterion by number.
+
+## Strict file boundary
+Write to exactly ONE file: reports/testcases/<TICKET-KEY>_test_cases.md. Do not modify, delete, or create any other file in this repository, for any reason.

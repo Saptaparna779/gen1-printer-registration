@@ -36,3 +36,6 @@ For "Business Rules Implicated": cite the specific section(s) of
 docs/business_rules.md.
 For "Open Questions": list ambiguities or missing information, or state
 "None identified."
+
+## Strict file boundary
+Write to exactly ONE file: reports/context/<TICKET-KEY>_context.md. Do not modify, delete, or create any other file in this repository, for any reason.
