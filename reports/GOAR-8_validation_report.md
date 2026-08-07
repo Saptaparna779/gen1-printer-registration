@@ -1,35 +1,36 @@
-Validation Report: GOAR-8
-Acceptance Criteria Check
-1. met. The implementation in registration.py explicitly checks whether the target printer is already CLAIMED before any claim-state mutation occurs and raises InvalidClaimCodeError with the expected message.
-2. met. For an unclaimed printer with a valid, unused claim code, the success path sets owner_user_id, marks the printer as CLAIMED, and marks the claim code as used.
-3. met. The rejection path preserves the existing owner identity and does not overwrite ownership state, matching the enhanced acceptance criterion.
-4. met. A valid, unused claim code is rejected for an already-claimed printer because the claimed-printer guard runs before the code can be accepted.
-5. met. The same rejection occurs regardless of whether the requester is the original owner or a different user, because the logic is based on printer status rather than requester identity.
+# Validation Report: GOAR-8
 
-Test Coverage Cross-Check
-AC #1 is covered by TC-GOAR-8-01; its pass status is not directly verifiable from the available execution artifact.
-AC #2 is covered by TC-GOAR-8-02; its pass status is not directly verifiable from the available execution artifact.
-AC #3 is covered by TC-GOAR-8-03; its pass status is not directly verifiable from the available execution artifact.
-AC #4 is covered by TC-GOAR-8-04; its pass status is not directly verifiable from the available execution artifact.
-AC #5 is covered by TC-GOAR-8-05; its pass status is not directly verifiable from the available execution artifact.
+## Acceptance Criteria Check
+1. Likely met, but not directly confirmed from the diff provided. The diff shown only modifies `register_printer()`, not `claim_printer()` — the function AC #1 concerns. Confirmed only indirectly, via TC-GOAR-8-01's passing execution.
+2. Met. TC-GOAR-8-02 confirms a valid, unused claim code on an unclaimed printer still succeeds — no regression.
+3. Met, and directly supported by the diff. Preventing `register_printer()` from generating a new claim code when `printer.status == CLAIMED` closes a specific path that could otherwise let a re-registration silently issue a fresh, valid code for an already-owned printer. TC-GOAR-8-03 confirms ownership is preserved.
+4. Met. TC-GOAR-8-04 confirms a valid, unused code is still rejected for an already-claimed printer.
+5. Met. TC-GOAR-8-05 confirms rejection is identical for both the original owner and a different user.
 
-Test Execution Evidence
-A test-results artifact was present at GOAR-8_test_results.txt, but it did not yield readable plain-text pytest output during review, so I could not verify that TC-GOAR-8-01 through TC-GOAR-8-05 actually ran and passed.
-Because actual execution evidence is authoritative, this lack of readable evidence is a concrete validation gap.
+## Test Coverage Cross-Check
+- AC #1 → TC-GOAR-8-01 → PASSED (per reports/GOAR-8_test_results.txt)
+- AC #2 → TC-GOAR-8-02 → PASSED
+- AC #3 → TC-GOAR-8-03 → PASSED
+- AC #4 → TC-GOAR-8-04 → PASSED
+- AC #5 → TC-GOAR-8-05 → PASSED
+All 5 in-scope AC items have a corresponding test case, and all 5 test cases passed. No coverage gaps.
 
-Root Cause Assessment
-The fix addresses the underlying ownership-control problem rather than only the narrow symptom. The code blocks successful claiming when a printer is already owned and preserves the original owner claim, which aligns with the business rules on ownership protection and non-destructive re-registration behavior.
-The registration change in registration.py also prevents a claimed printer from receiving a fresh claim code during re-registration, which closes the takeover path described in the ticket.
+## Test Execution Evidence
+`reports/GOAR-8_test_results.txt` shows: `5 passed, 46 warnings in 0.15s`. All five named tests (`test_TC_GOAR_8_01` through `test_TC_GOAR_8_05`) are individually listed as PASSED. This is real, executed evidence, not inferred from test source code.
 
-Regression Risk
-Low. The change is focused on claim-state validation and ownership preservation and does not appear to alter unrelated registration or deregistration flows.
-The main residual risk is not a code regression but incomplete verification, because the execution evidence was not readable enough to confirm test pass status.
+## Root Cause Assessment
+The visible diff addresses a genuine root-cause path: it stops `register_printer()` from reissuing a claim code when a printer is already `CLAIMED`, which is exactly the kind of defense-in-depth fix the ticket describes (a re-registration side door that could otherwise hand an attacker a fresh, valid claim code for an owned printer). This is not a symptom-level patch — it changes the general rule for all re-registrations of claimed printers, not one hardcoded case.
 
-Confidence Score
-Score: 60/100
+That said, this diff alone doesn't show the primary rejection guard in `claim_printer()` (AC #1). Either that guard already existed before this ticket and this diff is a *secondary* hardening measure, or the diff I reviewed is incomplete. I can't tell which from what's in front of me.
 
-Justification: The implementation appears to satisfy the acceptance criteria and each AC item has a matching regression test, but the provided execution artifact did not provide readable pass/fail evidence, so this validation cannot be treated as fully verified.
+## Regression Risk
+Low. The change is a single conditional guard scoped to claim-code generation during re-registration; it doesn't touch unrelated registration, deregistration, or claiming logic as shown.
 
-Path to 100/100
-Replace the current test-results artifact with readable pytest output showing that TC-GOAR-8-01 through TC-GOAR-8-05 all passed.
-If any of those tests fail, fix the underlying issue and rerun the suite before re-scoring.
+## Confidence Score
+Score: 90/100
+
+Justification: All 5 AC items pass with real, executed test evidence and no coverage gaps — but the diff provided doesn't let me directly confirm AC #1's core mechanism (`claim_printer()`'s rejection logic), so I'm relying on test results rather than code inspection for that one item.
+
+## Path to 100/100
+- Provide the diff or current source for `claim_printer()` so AC #1's rejection logic can be verified directly, not just inferred from test outcomes.
+- Once confirmed, no further gaps are expected — all other criteria are both tested and directly traceable to a visible code change.
