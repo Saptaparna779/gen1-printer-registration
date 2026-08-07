@@ -32,6 +32,8 @@ Cloning this repo gives you the SCAFFOLDING around the agent:
 | post_jira_comment.py | Posts a report back onto a Jira ticket |
 | run_qa_check.py | Local one-command runner (fetch + diff + prompt, all in one) |
 
+| tests/smoke_test_health.py | Automated liveness check -- starts the app as a real process and confirms it's reachable over the network, separate from functional endpoint tests |
+
 ## Setup for a new environment / new person cloning this repo
 
 ### 1. Clone and install
