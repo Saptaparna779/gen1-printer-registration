@@ -1,18 +1,21 @@
-"""
+﻿"""
 FastAPI app for the GEN 1 Printer Onboarding & Registration demo service.
-
 Run with:
     uvicorn app.main:app --reload --port 8000
-
 Docs available at http://localhost:8000/docs
 """
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-
 from app import registration
 from app.registration import RegistrationError, InvalidClaimCodeError
 
 app = FastAPI(title="GEN 1 Printer Onboarding & Registration (Demo)")
+
+
+@app.get("/health")
+def health_check():
+    """Liveness check -- confirms the application is running and reachable."""
+    return {"status": "ok"}
 
 
 class RegisterRequest(BaseModel):
@@ -38,7 +41,6 @@ def register_printer(req: RegisterRequest):
         )
     except RegistrationError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-
     return {
         "printer_id": printer.printer_id,
         "cloud_id": printer.cloud_id,
@@ -57,7 +59,6 @@ def claim_printer(req: ClaimRequest):
         printer = registration.claim_printer(req.claim_code, req.user_id)
     except InvalidClaimCodeError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-
     return {
         "printer_id": printer.printer_id,
         "status": printer.status,
@@ -68,11 +69,9 @@ def claim_printer(req: ClaimRequest):
 @app.get("/printers/{printer_id}")
 def get_printer(printer_id: str):
     from app import store
-
     printer = store.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="Printer not found")
-
     return {
         "printer_id": printer.printer_id,
         "serial_number": printer.serial_number,
