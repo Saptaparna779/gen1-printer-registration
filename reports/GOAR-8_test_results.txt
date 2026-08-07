@@ -1,0 +1,47 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.14.6, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration
+plugins: anyio-4.14.2
+collecting ... collected 5 items
+
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_01_reject_claim_on_already_claimed_printer PASSED [ 20%]
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_02_claim_registered_printer_with_valid_code PASSED [ 40%]
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_03_preserve_existing_owner_after_rejected_claim_attempt PASSED [ 60%]
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_04_reject_claim_for_claimed_printer_even_with_valid_unused_code PASSED [ 80%]
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_05_reject_claim_from_original_owner_and_other_user PASSED [100%]
+
+============================== warnings summary ===============================
+venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_01_reject_claim_on_already_claimed_printer
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_02_claim_registered_printer_with_valid_code
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_03_preserve_existing_owner_after_rejected_claim_attempt
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_04_reject_claim_for_claimed_printer_even_with_valid_unused_code
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_05_reject_claim_from_original_owner_and_other_user
+  <string>:13: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+
+tests/test_GOAR-8_generated.py: 30 warnings
+  C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration\app\models.py:54: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    f"{datetime.utcnow().isoformat()} :: {event}"
+
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_01_reject_claim_on_already_claimed_printer
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_02_claim_registered_printer_with_valid_code
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_03_preserve_existing_owner_after_rejected_claim_attempt
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_04_reject_claim_for_claimed_printer_even_with_valid_unused_code
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_05_reject_claim_from_original_owner_and_other_user
+  C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration\app\registration.py:48: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_01_reject_claim_on_already_claimed_printer
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_02_claim_registered_printer_with_valid_code
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_03_preserve_existing_owner_after_rejected_claim_attempt
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_04_reject_claim_for_claimed_printer_even_with_valid_unused_code
+tests/test_GOAR-8_generated.py::test_TC_GOAR_8_05_reject_claim_from_original_owner_and_other_user
+  C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration\app\registration.py:179: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    if datetime.utcnow() > target.claim_code.expires_at:
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 5 passed, 46 warnings in 0.15s ========================
