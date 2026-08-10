@@ -1,15 +1,18 @@
-# GEN 1 Printer Onboarding & Registration -- Agentic QA Validation Workflow
+﻿# GEN 1 Printer Onboarding & Registration -- Agentic QA Validation Workflow
 
 ## Purpose
-Reduce manual QA effort and improve consistency of bug-fix and user-story
-validation by having an AI agent (GitHub Copilot) automatically read a
-Jira ticket's acceptance criteria, evaluate the corresponding code
-change against them, and report a structured, confidence-scored
-assessment back onto the ticket.
+Reduce manual QA effort and improve consistency of user-story and bug-fix
+validation by having five distinct AI agent roles (each a GitHub Copilot
+session) work in sequence: understand the ticket, enrich its acceptance
+criteria against real business rules, design test cases against the
+deployed API, automate those test cases as real executable tests, run
+them, and report a structured, evidence-based confidence score back onto
+the ticket.
 
 ## Architecture at a glance
 
-Developer fixes bug -> PR -> merge -> Jira: In Progress -> Ready for QA
+Developer fixes bug or finishes a story -> PR -> merge -> Jira: In
+Progress -> Ready for QA
         |
         | (AUTOMATIC -- Jira Automation rule)
         v
@@ -18,22 +21,43 @@ GitHub webhook fires (repository_dispatch: qa_ready)
         | (AUTOMATIC -- GitHub Action: .github/workflows/qa-prep.yml)
         v
 Fetch live ticket (Jira REST API) -> find real fix commit (by ticket key
-in commit message) -> generate code diff -> generate Copilot prompt from
-template -> commit results -> notify Jira "ready for review"
+in commit message) -> generate code diff -> generate Agent 5's prompt
+from template -> commit results -> notify Jira "ready for review"
         |
-        | (HUMAN -- deliberate checkpoint)
+        | (HUMAN -- deliberate checkpoint, repeats after EVERY agent below)
         v
-QA opens VS Code, new Copilot chat, ASK mode, pastes generated prompt
+Agent 1 -- Context Intake: reads ticket + diff + business rules ->
+writes a structured, plain-language summary
         |
-        | (AGENTIC -- the one real reasoning step)
+        | (HUMAN reviews before continuing)
         v
-Copilot reads ticket + diff + business rules + rubric -> checks every
-acceptance criterion -> assesses root cause vs. symptom -> flags
-regression risk -> scores 0-100 -> lists concrete gaps to reach 100
+Agent 2 -- AC Enhancement: reads the ticket's acceptance criteria + the
+context summary -> checks completeness against business rules -> proposes
+additional criteria for real gaps, clearly tagged as proposed
         |
-        | (HUMAN -- review before publishing)
+        | (HUMAN reviews and approves/resolves any open questions)
         v
-QA verifies report against reality -> posts to Jira (REST API)
+Agent 3 -- Test Case Design: reads the approved acceptance criteria ->
+designs manual test cases against the real deployed API surface, in a
+structured field-by-field table (Test ID, Endpoint, Method, Test Data,
+Expected Status/Response, etc.)
+        |
+        | (HUMAN reviews before continuing)
+        v
+Agent 4 -- Test Generation: reads the approved test cases -> writes real,
+executable pytest tests using FastAPI's TestClient against the actual
+endpoints -> stops, does not run anything itself
+        |
+        | (HUMAN runs pytest, reviews results before continuing)
+        v
+Agent 5 -- Fix Validation: reads the diff, enhanced AC, test cases, and
+the REAL executed test results -> cross-checks that every AC item has a
+passing test behind it -> scores 0-100 with specific, actionable gaps
+        |
+        | (HUMAN reviews before publishing)
+        v
+QA posts the report to Jira via REST API -- now with real formatting
+(headings, bullets, inline code), not raw markdown symbols
         |
         v
 Permanent, auditable comment on the ticket
@@ -42,117 +66,143 @@ Permanent, auditable comment on the ticket
 
 ### Part 1 -- Developer
 1. Move ticket to "In Progress"
-2. Create a branch, fix the bug, add a regression test
+2. Create a branch, fix the bug or build the story, add a regression test
 3. Run tests locally
 4. Commit with a message containing the ticket key (e.g. "Fix GOAR-13: ...")
 5. Push, open PR, merge into main
 6. Move ticket to "Ready for QA"
 
 ### Part 2 -- Automatic prep (zero manual steps)
-7. Jira Automation rule detects the status change, sends a webhook to
-   GitHub (https://api.github.com/repos/<owner>/<repo>/dispatches)
+7. Jira Automation rule detects the status change, sends a webhook to GitHub
 8. GitHub Action wakes up and:
    - Fetches the live ticket via Jira's REST API (fetch_jira_ticket.py)
-   - Finds the real fix commit by searching main's commit history for
-     the ticket key, excluding the automation's own bookkeeping commits
+   - Finds the real fix commit by searching main's commit history for the
+     ticket key, excluding the automation's own bookkeeping commits
    - Generates the diff for that commit (app/ and tests/ only)
-   - Generates the Copilot prompt from the canonical template
+   - Generates Agent 5's prompt from its canonical template
    - Commits all of this back to the repo
    - Posts a Jira comment saying prep is ready
+   NOTE: Agents 1-4's prompts are not yet auto-generated by this workflow
+   -- they're currently prepared manually per the steps in AGENTS.md.
+   Wiring all five prompts into this Action is a natural next extension.
 
-### Part 3 -- Agentic validation (the one real agent)
+### Part 3 -- Five agents, five human checkpoints
 9. QA pulls the latest changes
-10. Starts a brand-new Copilot chat (never reuses an old thread -- reused
-    threads can repeat stale conclusions instead of re-checking)
-11. Sets mode to Ask, not Agent (Ask cannot edit files or run
-    commands -- removes the risk of unauthorized action entirely)
-12. Pastes the auto-generated prompt (or simply asks Copilot to validate
-    the ticket -- .github/copilot-instructions.md auto-applies the
-    same grounding rules and guardrails to every chat in this repo)
-13. Copilot reads the ticket, diff, business rules, and rubric, and
-    produces a structured report with a score and actionable gaps
+10. For each agent in order (Context Intake, AC Enhancement, Test Case
+    Design, Test Generation, Fix Validation):
+    a. Regenerate that agent's prompt from its template
+    b. Start a brand-new Copilot chat (never reuse a thread)
+    c. Set the correct mode -- Agent mode for Agents 1-4 (they write
+       files), Ask mode for Agent 5 (read-only, cannot write files itself)
+    d. Paste the prompt, send, wait for it to finish
+    e. If Ask mode: manually create the output file and paste the
+       response in
+    f. Run `git status --ignored` to confirm nothing outside the agent's
+       scoped output path was touched
+    g. Review the output against the real source files -- this is where
+       every real issue during this workflow's build was actually caught
+    h. Only once satisfied, move to the next agent
 
 ### Part 4 -- Close the loop
-14. QA reviews the report against reality (git status/log, actual test
-    results) before trusting it
-15. Runs post_jira_comment.py to publish it to the ticket via Jira's
-    REST API
-16. Result: a permanent, auditable comment on the ticket
+11. QA reviews Agent 5's final report against reality one more time
+12. Runs post_jira_comment.py to publish it to the ticket
+13. Result: a permanent, auditable, properly formatted comment on the ticket
 
-## The one real agent
-GitHub Copilot is the only agent in this workflow. Everything else --
-the Jira Automation rule, the GitHub Action, fetch_jira_ticket.py,
-post_jira_comment.py -- is deterministic automation with no judgment
-involved. Copilot is the sole component that reads unstructured
-information (ticket text, code, rules) and produces a genuine, reasoned
-assessment rather than following a fixed script.
+## The five agents
+| Role | Mode | What it actually does |
+|---|---|---|
+| Context Intake Agent | Agent (1 file) | Summarizes ticket + diff + business rules into a grounded brief |
+| AC Enhancement Agent | Agent (1 file) | Finds gaps in the ticket's acceptance criteria against business rules, proposes additions for human sign-off |
+| Test Case Design Agent | Agent (1 file) | Designs manual test cases against the real API surface, in a structured table |
+| Test Generation Agent | Agent (2 files) | Automates the approved test cases as real pytest code using TestClient |
+| Fix Validation Agent | Ask (1 file, read-only) | Cross-checks AC coverage against test cases and real execution results, scores 0-100 |
 
-| Original 6-role design | What it actually is |
-|---|---|
-| Trigger Agent | Automation -- Jira Automation rule |
-| Ticket Context Agent | Automation -- GitHub Action + Jira REST API |
-| Requirements Enrichment Agent | Folded into the one real Copilot call |
-| Fix Validation Agent | The real agent -- GitHub Copilot |
-| Confidence Scoring Agent | Folded into the one real Copilot call |
-| Reporting Agent | Automation -- Python script + Jira REST API |
+Earlier design iterations considered folding all reasoning into a single
+Copilot call; splitting it into five narrower roles was a deliberate
+choice, made because each handoff point is a natural place for a human
+to catch an issue before it compounds downstream -- confirmed repeatedly
+during this workflow's build (see Guardrails below).
 
 ## Guardrails against hallucination / misjudgment
-Added after specific incidents caught during real testing, not
-speculatively:
-- Grounding: every validation points to real files (ticket, diff,
-  business rules, rubric) instead of letting the model answer from
+Added after specific incidents caught during real testing, not speculatively:
+- Grounding: every agent points to real files -- ticket, diff, business
+  rules, rubric, prior agents' outputs -- instead of answering from
   memory or assumption.
-- "Do not run shell commands yourself": added after Copilot once
-  claimed a real dependency (pytest) was "missing" -- it had tried
-  running a command in a terminal without the project's virtual
-  environment active, and hallucinated the wrong conclusion.
-- "Recognize legitimate test mocking": added after Copilot once
-  flagged a deliberate monkeypatch test as "broken placeholder code."
-- Ask mode instead of Agent mode: added after Agent mode, despite
-  explicit instructions not to modify other files, deleted a test file
-  and invented an unrequested "atomic email-claim API." Prompt wording
-  is a suggestion; Ask mode removes the capability structurally.
-- Fresh chat per ticket: added after a repeated prompt in an old
-  chat thread returned an identical, stale score even after the
-  underlying code had changed.
-- Human review before posting: no guardrail set fully eliminates
-  hallucination risk, so a person verifies the report against reality
+- "Do not run shell commands yourself": added after Copilot once claimed
+  a real dependency (pytest) was "missing" -- it had tried running a
+  command in a terminal without the project's virtual environment
+  active, and hallucinated the wrong conclusion.
+- "Recognize legitimate test mocking": added after Copilot once flagged
+  a deliberate monkeypatch test as "broken placeholder code."
+- Strict single-file-boundary scoping for every agent, enforced via each
+  agent's own `.instructions.md` `applyTo` glob: added after Agent mode,
+  despite explicit instructions not to modify other files, once deleted
+  a test file and invented an unrequested "atomic email-claim API."
+- Ask mode for Fix Validation specifically, since it only needs to
+  reason and score, never to write beyond one report -- removes any
+  write-access risk structurally for that role.
+- Fresh chat per agent, per ticket: added after a repeated prompt in an
+  old chat thread returned an identical, stale result even after the
+  underlying files had changed.
+- `git status --ignored` after every Agent-mode run: catches any file
+  touched outside the intended scope before it's ever committed.
+- Human review after EVERY agent, not just at the end (see AGENTS.md
+  "Human checkpoint policy"): this is what actually caught a stretched
+  business-rule citation, an unresolved product ambiguity, a numbering
+  collision between two agents' outputs, and an unreadable
+  execution-evidence file -- all real issues, all caught before they
+  reached the next agent or Jira.
+- Human review before posting: no guardrail eliminates hallucination
+  risk entirely, so a person verifies the final report against reality
   before it becomes a permanent Jira record.
 
 ## Proof points (from real testing on this repo)
-- GOAR-7: scored 20/100 on genuinely broken code, 90/100 after a
-  real fix -- same ticket, same prompt, correct opposite verdicts.
-- GOAR-8: scored 30/100 broken, 100/100 fixed, correctly crediting
-  the specific regression test added to close the gap.
-- GOAR-9: uncovered a real bug in the automation itself (diff
-  generation was grabbing the wrong commit due to a branch-name
-  assumption, then a bot-commit collision) -- found and fixed live.
-- GOAR-7 (autonomous test): given only a ticket key, no pre-selected
-  files, Copilot searched the repository itself and correctly identified
-  the relevant source files before validating.
+- GOAR-7: scored 20/100 on genuinely broken code, 90/100 after a real
+  fix -- same ticket, same prompt, correct opposite verdicts (original
+  2-agent design).
+- GOAR-8 (original 2-agent design): scored 30/100 broken, 100/100 fixed.
+- GOAR-9: uncovered a real bug in the automation itself (diff generation
+  grabbing the wrong commit) -- found and fixed live.
+- GOAR-8 (rebuilt 5-agent pipeline, full re-run): AC Enhancement
+  surfaced two real gaps the original ticket missed (ownership
+  preservation, observability) plus one genuine product ambiguity
+  (same-owner re-claim) that required a human decision; Test Case
+  Design produced 5 structured test cases covering all 5 resulting
+  acceptance criteria; Test Generation automated all 5 against real API
+  endpoints via TestClient, executed with real pytest evidence (5
+  passed, 0 failed); Fix Validation cross-checked full AC-to-test
+  coverage and scored 90/100, correctly identifying one item (AC #1)
+  it could not fully verify from the diff alone rather than assuming it
+  was covered.
 
 ## What's automatic vs. manual today
 | Stage | Automatic | Manual |
 |---|---|---|
 | Trigger (status change -> webhook) | Yes | -- |
-| Context gathering (fetch ticket, diff, prompt) | Yes | -- |
-| Fix validation & scoring | -- | Yes (human opens Copilot, Ask mode) |
+| Context gathering for Agent 5 (fetch ticket, diff, prompt) | Yes | -- |
+| Prompt generation for Agents 1-4 | -- | Yes (substitute {{ISSUE_KEY}} manually) |
+| All five agents' reasoning | -- | Yes (human opens Copilot per agent, correct mode) |
+| Running the generated tests | -- | Yes (pytest, saved with explicit UTF-8 encoding) |
 | Publishing the result | -- | Yes (one command, after human review) |
 
-Closing the remaining manual gap would require either GitHub Copilot's
-paid "coding agent" (works via GitHub Issues, different mechanics) or an
-LLM API call inside the GitHub Action itself (small per-run cost,
-removes the human-trigger step for the reasoning stage).
+Closing the remaining manual gaps would require either wiring Agents 1-4
+into qa-prep.yml the same way Agent 5 already is, or replacing the
+human-pastes-into-Copilot step entirely with a direct Anthropic Claude
+API call inside the GitHub Action -- same five prompts, same guardrails,
+invoked by a script instead of a person (see future scope in the
+original project context).
 
 ## File map
 | File | Role in this workflow |
 |---|---|
-| .github/workflows/qa-prep.yml | Automation: trigger receiver, fetch, diff, prompt generation |
-| .github/copilot-instructions.md | Auto-loaded grounding rules + guardrails for Copilot in this repo |
-| docs/validation_prompt_template.md | Canonical prompt, single source of truth |
-| docs/business_rules.md | Ground truth business rules the agent checks against |
-| docs/confidence_rubric.md | Scoring rubric |
+| .github/workflows/qa-prep.yml | Automation: trigger receiver, fetch, diff, Agent 5 prompt generation |
+| .github/instructions/*.instructions.md | Per-agent scoping (5 files), auto-loaded by Copilot Chat based on target folder |
+| docs/*_prompt_template.md | Canonical prompt per agent (5 files), single source of truth |
+| docs/business_rules.md | Ground truth business rules every agent checks against |
+| docs/confidence_rubric.md | Scoring rubric used by Fix Validation Agent |
 | fetch_jira_ticket.py | Pulls live ticket data via Jira REST API |
-| post_jira_comment.py | Publishes the report via Jira REST API |
-| run_qa_check.py | Local one-command manual runner |
-| jira_context/, reports/ | Generated artifacts (not source, not committed manually) |
+| post_jira_comment.py | Publishes the report via Jira REST API, converts markdown to real Jira formatting |
+| run_qa_check.py | Local one-command manual runner (Agent 5's inputs only, today) |
+| tests/conftest.py | TestClient fixture used by all generated tests |
+| tests/smoke_test_health.py | Standalone liveness check -- real subprocess, real network call |
+| jira_context/, reports/ | Generated artifacts (not source, not committed manually -- always requires `git add -f` since reports/ is gitignored) |
