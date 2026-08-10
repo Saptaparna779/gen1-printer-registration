@@ -1,120 +1,96 @@
-# Test Cases: GOAR-8
+﻿# Test Cases: GOAR-8
 
 ## TC-GOAR-8-01
-Maps to: AC #1
-Preconditions:
-- A printer has already been registered and successfully claimed by `owner-123`.
-- The printer is in status `CLAIMED`.
-- The printer has an existing claim code value that can be used in the request.
 
-Steps:
-1. Call `POST /printers/claim` with request body:
-   {
-     "claim_code": "<existing-claimed-printer-claim-code>",
-     "user_id": "attacker-456"
-   }
-
-Expected Result:
-- HTTP 400 response.
-- Response body contains:
-  {
-    "detail": "Printer is already claimed"
-  }
-- The existing ownership claim is preserved and not overwritten.
+| Field | Value |
+|---|---|
+| Test ID | TC-GOAR-8-01 |
+| Jira Story | GOAR-8 |
+| Maps to AC # | 1 |
+| Test Type | API |
+| Scenario | Reject a claim attempt on a printer that is already claimed by a different user |
+| Preconditions | A printer has already been registered and successfully claimed by owner-123; printer status is CLAIMED |
+| Endpoint | /printers/claim |
+| HTTP Method | POST |
+| Test Data | {"claim_code": "<existing-claimed-printer-claim-code>", "user_id": "attacker-456"} |
+| Expected Status | 400 |
+| Expected Response | {"detail": "Printer is already claimed"}; existing ownership (owner-123) remains unchanged |
+| Automation Framework | pytest |
+| Automation Code | tests/test_GOAR-8_generated.py::test_TC_GOAR_8_01_reject_claim_on_already_claimed_printer |
+| Expected Result | Pass |
 
 ## TC-GOAR-8-02
-Maps to: AC #2
-Preconditions:
-- A printer has been registered and is currently in status `REGISTERED`.
-- The printer has a valid, unused claim code that has not expired.
 
-Steps:
-1. Call `POST /printers/claim` with request body:
-   {
-     "claim_code": "<valid-unused-claim-code>",
-     "user_id": "user-123"
-   }
-
-Expected Result:
-- HTTP 200 response.
-- Response body contains:
-  {
-    "printer_id": "<printer-id>",
-    "status": "CLAIMED",
-    "owner_user_id": "user-123"
-  }
-- The printer transitions to status `CLAIMED` and ownership is assigned to `user-123`.
+| Field | Value |
+|---|---|
+| Test ID | TC-GOAR-8-02 |
+| Jira Story | GOAR-8 |
+| Maps to AC # | 2 |
+| Test Type | API |
+| Scenario | Claim an unclaimed printer with a valid, unused claim code -- should still succeed |
+| Preconditions | A printer has been registered and is in status REGISTERED, with a valid unused claim code |
+| Endpoint | /printers/claim |
+| HTTP Method | POST |
+| Test Data | {"claim_code": "<valid-unused-claim-code>", "user_id": "user-123"} |
+| Expected Status | 200 |
+| Expected Response | {"printer_id": "<printer-id>", "status": "CLAIMED", "owner_user_id": "user-123"} |
+| Automation Framework | pytest |
+| Automation Code | tests/test_GOAR-8_generated.py::test_TC_GOAR_8_02_claim_registered_printer_with_valid_code |
+| Expected Result | Pass |
 
 ## TC-GOAR-8-03
-Maps to: AC #3
-Preconditions:
-- A printer has already been claimed by `owner-123` and is in status `CLAIMED`.
-- The printer retains its original owner identity.
 
-Steps:
-1. Call `POST /printers/claim` with request body:
-   {
-     "claim_code": "<existing-claimed-printer-claim-code>",
-     "user_id": "attacker-456"
-   }
-2. Call `GET /printers/<printer-id>`.
-
-Expected Result:
-- Step 1 returns HTTP 400 with response body:
-  {
-    "detail": "Printer is already claimed"
-  }
-- Step 2 returns HTTP 200 with the printer resource showing:
-  {
-    "printer_id": "<printer-id>",
-    "status": "CLAIMED",
-    "owner_user_id": "owner-123"
-  }
-- No ownership state mutation occurs and the existing owner claim remains unchanged.
+| Field | Value |
+|---|---|
+| Test ID | TC-GOAR-8-03 |
+| Jira Story | GOAR-8 |
+| Maps to AC # | 3 |
+| Test Type | API |
+| Scenario | Confirm existing owner is preserved after a rejected claim attempt |
+| Preconditions | A printer has already been claimed by owner-123; printer status is CLAIMED |
+| Endpoint | Step 1: POST /printers/claim; Step 2: GET /printers/{printer_id} |
+| HTTP Method | POST, then GET |
+| Test Data | Step 1: {"claim_code": "<existing-claimed-printer-claim-code>", "user_id": "attacker-456"} |
+| Expected Status | Step 1: 400; Step 2: 200 |
+| Expected Response | Step 1: {"detail": "Printer is already claimed"}; Step 2: printer resource shows owner_user_id "owner-123", status "CLAIMED" |
+| Automation Framework | pytest |
+| Automation Code | tests/test_GOAR-8_generated.py::test_TC_GOAR_8_03_preserve_existing_owner_after_rejected_claim_attempt |
+| Expected Result | Pass |
 
 ## TC-GOAR-8-04
-Maps to: AC #4
-Preconditions:
-- A printer exists in status `CLAIMED`.
-- A valid claim code is associated with that printer and is still unused and unexpired.
 
-Steps:
-1. Call `POST /printers/claim` with request body:
-   {
-     "claim_code": "<valid-unused-claim-code-for-claimed-printer>",
-     "user_id": "attacker-456"
-   }
-
-Expected Result:
-- HTTP 400 response.
-- Response body contains:
-  {
-    "detail": "Printer is already claimed"
-  }
-- The claim attempt is rejected even though the code itself is valid and unused, preventing takeover of the already-owned printer.
+| Field | Value |
+|---|---|
+| Test ID | TC-GOAR-8-04 |
+| Jira Story | GOAR-8 |
+| Maps to AC # | 4 |
+| Test Type | API |
+| Scenario | Reject a claim attempt on an already-claimed printer even when the supplied code is otherwise valid and unused |
+| Preconditions | A printer exists in status CLAIMED with a valid, unused claim code associated |
+| Endpoint | /printers/claim |
+| HTTP Method | POST |
+| Test Data | {"claim_code": "<valid-unused-claim-code-for-claimed-printer>", "user_id": "attacker-456"} |
+| Expected Status | 400 |
+| Expected Response | {"detail": "Printer is already claimed"} |
+| Automation Framework | pytest |
+| Automation Code | tests/test_GOAR-8_generated.py::test_TC_GOAR_8_04_reject_claim_for_claimed_printer_even_with_valid_unused_code |
+| Expected Result | Pass |
 
 ## TC-GOAR-8-05
-Maps to: AC #5
-Preconditions:
-- A printer has already been claimed by `owner-123` and is in status `CLAIMED`.
-- The printer has a known claim code value.
 
-Steps:
-1. Call `POST /printers/claim` with request body using the original owner:
-   {
-     "claim_code": "<existing-claimed-printer-claim-code>",
-     "user_id": "owner-123"
-   }
-2. Call `POST /printers/claim` with request body using a different user:
-   {
-     "claim_code": "<existing-claimed-printer-claim-code>",
-     "user_id": "attacker-456"
-   }
-
-Expected Result:
-- Both steps return HTTP 400 responses.
-- Both response bodies contain:
-  {
-    "detail": "Printer is already claimed"
-  }
-- The rejection is the same regardless of whether the claim attempt comes from the original owner or a different user.
+| Field | Value |
+|---|---|
+| Test ID | TC-GOAR-8-05 |
+| Jira Story | GOAR-8 |
+| Maps to AC # | 5 |
+| Test Type | API |
+| Scenario | Reject a claim attempt identically whether it comes from the original owner or a different user |
+| Preconditions | A printer has already been claimed by owner-123; printer status is CLAIMED |
+| Endpoint | /printers/claim (called twice) |
+| HTTP Method | POST |
+| Test Data | Call 1: {"claim_code": "<code>", "user_id": "owner-123"}; Call 2: {"claim_code": "<code>", "user_id": "attacker-456"} |
+| Expected Status | 400 for both calls |
+| Expected Response | {"detail": "Printer is already claimed"} for both calls |
+| Automation Framework | pytest |
+| Automation Code | tests/test_GOAR-8_generated.py::test_TC_GOAR_8_05_reject_claim_from_original_owner_and_other_user |
+| Expected Result | Pass |
