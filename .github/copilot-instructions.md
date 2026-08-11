@@ -15,15 +15,26 @@ template under docs/:
   fully specified manual test cases against the real API surface
   (active when working with reports/testcases/).
 - test-generation.instructions.md -- automates approved test cases into
-  real, executable pytest tests against real API endpoints (active when
+  real, executable pytest tests against real API endpoints, with
+  read-only awareness of tests/smoke_test_health.py (active when
   working with tests/).
 - fix-validation.instructions.md -- validates a code diff against a
-  ticket's approved acceptance criteria and cross-checks test coverage
-  (active when working with reports/).
+  ticket's approved requirements and cross-checks both test coverage
+  and scenario-type coverage (active when working with reports/).
+- validation-audit.instructions.md -- an independent, fresh-context
+  check on the Fix Validation Agent's own report, using a separate
+  trustworthiness rubric (docs/validation_audit_rubric.md) and its own
+  re-read of the raw evidence, not the report's summary (active when
+  working with reports/audit/).
 
 Two earlier separate roles -- context intake and AC enhancement -- have
 been merged into the single Requirements Agent above. Retired templates
 and instructions files are kept for reference under docs/_archive/.
+
+A liveness check (tests/smoke_test_health.py) runs independently of this
+pipeline, proving the application is genuinely reachable over a real
+network call -- separate from the functional TestClient-based tests
+these agents produce.
 
 Agents run in sequence, each with a human review checkpoint after every
 single agent before moving to the next -- see AGENTS.md's "Human
