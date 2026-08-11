@@ -1,4 +1,4 @@
-﻿This repository contains an agentic QA workflow with five distinct agent
+﻿This repository contains an agentic QA workflow with six distinct agent
 roles, each defined in its own path-specific instructions file under
 .github/instructions/, and each grounded by its own canonical prompt
 template under docs/:
@@ -7,9 +7,13 @@ template under docs/:
   business requirement and acceptance criteria, and proposes
   enhancements against business rules when they're unclear or
   incomplete (active when working with reports/requirements/).
-- test-case-design.instructions.md -- designs manual test cases against
-  the real API surface from approved acceptance criteria (active when
-  working with reports/testcases/).
+- scenario-coverage.instructions.md -- decides which scenario types
+  (happy path, negative, boundary, permission/ownership) apply to each
+  acceptance criterion, without writing full test cases (active when
+  working with reports/scenarios/).
+- test-case-design.instructions.md -- expands approved scenarios into
+  fully specified manual test cases against the real API surface
+  (active when working with reports/testcases/).
 - test-generation.instructions.md -- automates approved test cases into
   real, executable pytest tests against real API endpoints (active when
   working with tests/).
