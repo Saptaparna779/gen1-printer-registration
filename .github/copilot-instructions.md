@@ -3,12 +3,10 @@ roles, each defined in its own path-specific instructions file under
 .github/instructions/, and each grounded by its own canonical prompt
 template under docs/:
 
-- context-intake.instructions.md -- summarizes a ticket, diff, and
-  business rules into a structured brief (active when working with
-  reports/context/).
-- ac-enhancement.instructions.md -- checks a ticket's acceptance criteria
-  for completeness against business rules, proposing additions for human
-  sign-off (active when working with reports/ac/).
+- requirements.instructions.md -- fetches a ticket, extracts its
+  business requirement and acceptance criteria, and proposes
+  enhancements against business rules when they're unclear or
+  incomplete (active when working with reports/requirements/).
 - test-case-design.instructions.md -- designs manual test cases against
   the real API surface from approved acceptance criteria (active when
   working with reports/testcases/).
@@ -18,6 +16,10 @@ template under docs/:
 - fix-validation.instructions.md -- validates a code diff against a
   ticket's approved acceptance criteria and cross-checks test coverage
   (active when working with reports/).
+
+Two earlier separate roles -- context intake and AC enhancement -- have
+been merged into the single Requirements Agent above. Retired templates
+and instructions files are kept for reference under docs/_archive/.
 
 Agents run in sequence, each with a human review checkpoint after every
 single agent before moving to the next -- see AGENTS.md's "Human
