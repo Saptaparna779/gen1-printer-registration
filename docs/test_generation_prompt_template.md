@@ -8,16 +8,19 @@ Using:
   context only)
 - The code diff in reports/{{ISSUE_KEY}}_diff.txt (for context only)
 - The business rules in docs/business_rules.md (for context only)
+- The existing liveness check in tests/smoke_test_health.py (read-only,
+  for awareness only -- see step 6 below)
 
 Important boundaries (do not violate these):
 - Write to exactly these TWO files, and no others:
   1. tests/test_{{ISSUE_KEY}}_generated.py -- the actual executable pytest code
   2. reports/{{ISSUE_KEY}}_test_generation_report.md -- a human-readable summary
 - Do NOT modify, delete, or overwrite any other file -- not
-  tests/test_registration.py, not anything under app/, not any other file.
+  tests/test_registration.py, not tests/smoke_test_health.py, not
+  anything under app/, not any other file.
 - Do NOT attempt to run pytest or any shell command yourself. Only write
   the two files above, then stop. The human operator will run the tests
-  separately.
+  separately, including the smoke test.
 - Do NOT invent new test cases, acceptance criteria, or "improvements"
   beyond what reports/testcases/{{ISSUE_KEY}}_test_cases.md specifies.
   Automate exactly those test cases -- no more, no fewer.
@@ -40,9 +43,15 @@ Do the following:
    have a corresponding test function. Before finishing, verify this and
    note any gaps in the report's Notes section rather than skipping
    silently.
-6. Write all test functions into tests/test_{{ISSUE_KEY}}_generated.py.
+6. Read tests/smoke_test_health.py and compare it against the Endpoint
+   column of this ticket's test cases. If this ticket introduces a new
+   endpoint that the smoke test's liveness check would not exercise or
+   be aware of, note this in the report's Notes section as a suggestion
+   for the human operator -- do NOT edit tests/smoke_test_health.py
+   yourself.
+7. Write all test functions into tests/test_{{ISSUE_KEY}}_generated.py.
    If that file already exists, overwrite only that file.
-7. Write a human-readable companion report to
+8. Write a human-readable companion report to
    reports/{{ISSUE_KEY}}_test_generation_report.md, formatted as:
    # Test Generation Report: {{ISSUE_KEY}}
    ## Test Cases Covered
@@ -56,6 +65,10 @@ Do the following:
    without reading Python code)
    ## File Created
    tests/test_{{ISSUE_KEY}}_generated.py
+   ## Smoke Test Awareness
+   (state whether tests/smoke_test_health.py appears sufficient for this
+   ticket's changes, or note a suggestion if a new endpoint may need
+   liveness coverage -- do not edit the file itself)
    ## Notes
    (any test cases that could not be directly automated and why)
-8. Stop after writing both files. Do not run anything.
+9. Stop after writing both files. Do not run anything.
