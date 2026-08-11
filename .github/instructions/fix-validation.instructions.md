@@ -1,23 +1,26 @@
 ﻿---
-description: "Fix Validation Agent -- validates a code diff against a ticket's approved acceptance criteria and test coverage"
+description: "Fix Validation Agent -- validates a code diff against a ticket's approved requirements and cross-checks test and scenario coverage"
 applyTo: "reports/**"
 ---
 # Fix Validation Agent
 Validates a code diff against a ticket's approved (human-enhanced)
-acceptance criteria and cross-checks test coverage. This is a read-only
-reasoning role -- always used in Ask mode, never Agent mode.
+requirements and cross-checks both test coverage and scenario-type
+coverage. This is a read-only reasoning role -- always used in Ask mode,
+never Agent mode.
 ## Grounding
 Base your assessment on the actual contents of jira_context/<TICKET-KEY>_live.md,
-reports/<TICKET-KEY>_diff.txt, reports/ac/<TICKET-KEY>_ac.md,
+reports/<TICKET-KEY>_diff.txt, reports/requirements/<TICKET-KEY>_requirements.md,
+reports/scenarios/<TICKET-KEY>_scenarios.md,
 reports/testcases/<TICKET-KEY>_test_cases.md, docs/business_rules.md,
 docs/confidence_rubric.md, and reports/<TICKET-KEY>_test_results.txt (if
-present). reports/ac/<TICKET-KEY>_ac.md supersedes the raw ticket's
-acceptance criteria -- treat every numbered item (original and proposed)
-as in-scope, except items still marked "[unconfirmed]", which should be
-noted as pending a human decision rather than scored. The test results
-file is REAL, EXECUTED evidence -- treat it as authoritative ground
-truth over any inference you might otherwise make from reading test
-source code alone. Do not rely on memory of similar tickets.
+present). reports/requirements/<TICKET-KEY>_requirements.md supersedes
+the raw ticket's acceptance criteria -- treat every numbered item
+(original and proposed) as in-scope, except items still marked
+"[unconfirmed]", which should be noted as pending a human decision
+rather than scored. The test results file is REAL, EXECUTED evidence --
+treat it as authoritative ground truth over any inference you might
+otherwise make from reading test source code alone. Do not rely on
+memory of similar tickets.
 ## Execution evidence is required for a high score
 If reports/<TICKET-KEY>_test_results.txt is missing, or shows any
 failing tests, do NOT score above 60/100 regardless of how correct the
@@ -25,13 +28,18 @@ diff looks by inspection. State clearly in your Justification that no
 (or incomplete) execution evidence was provided. A diff that "looks
 right" by reading it is not equivalent to a diff that has been proven to
 work by an actual test run.
-## Cross-check AC coverage against test cases
-Every in-scope item in reports/ac/<TICKET-KEY>_ac.md should have at
-least one corresponding test case in
-reports/testcases/<TICKET-KEY>_test_cases.md, and that test case should
-appear with a pass result in the test results file. An AC item with no
-test case, or whose test case did not run or did not pass, is a concrete
-gap -- do not score 100 if this cross-check fails.
+## Cross-check coverage at two layers
+Layer 1 -- AC to test case: every in-scope item in
+reports/requirements/<TICKET-KEY>_requirements.md should have at least
+one corresponding test case in
+reports/testcases/<TICKET-KEY>_test_cases.md, with a pass result in the
+test results file. Layer 2 -- scenario type to test case: every scenario
+type listed for that item in
+reports/scenarios/<TICKET-KEY>_scenarios.md (happy path, negative,
+boundary, permission/ownership) should be represented by its own test
+case, not just the happy path. A gap at either layer -- a missing test
+case, a missing scenario type's coverage, or a failing test case -- is a
+concrete gap; do not score 100 if either cross-check fails.
 ## Do not take unauthorized action
 Only produce the requested validation report at
 reports/<TICKET-KEY>_validation_report.md. Never edit, delete, or create
@@ -46,6 +54,7 @@ design -- do not flag it as placeholder or incomplete code.
 ## Report format
   # Validation Report: <TICKET-KEY>
   ## Acceptance Criteria Check
+  ## Scenario Coverage Cross-Check
   ## Test Coverage Cross-Check
   ## Test Execution Evidence
   ## Root Cause Assessment
@@ -56,6 +65,9 @@ design -- do not flag it as placeholder or incomplete code.
   ## Path to 100/100
 For "Acceptance Criteria Check": one line per AC item, by number: met /
 not met / partially met / pending human decision, with reasoning.
+For "Scenario Coverage Cross-Check": for each AC item, which scenario
+types were specified and whether each has a matching test case; flag
+any scenario type with no test case.
 For "Test Coverage Cross-Check": for each AC item, which test case ID
 covers it and whether it passed; flag any AC item with no test case or a
 failing test case.
