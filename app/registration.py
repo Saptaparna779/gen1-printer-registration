@@ -102,6 +102,9 @@ def register_printer(
     printer.log("Re-registration started" if existing else "Registration started")
 
     # Step 1: Cloud identity
+    # GOAR-3: always generate a NEW Cloud ID on every registration call --
+    # including re-registration -- per business rule 3/6. Never reuse an
+    # existing printer's cloud_id, even if one is already on record.
     printer.cloud_id = _generate_cloud_id()
 
     printer.printer_email_id = _generate_printer_email_id()
@@ -205,3 +208,4 @@ def deregister_printer(printer_id: str) -> None:
     store.delete_capabilities(printer_id)
     store.remove_serial_index(printer.serial_number)
     store.delete_printer(printer_id)
+
