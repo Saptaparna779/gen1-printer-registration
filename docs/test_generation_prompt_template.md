@@ -17,7 +17,7 @@ Important boundaries (do not violate these):
   2. reports/{{ISSUE_KEY}}_test_generation_report.md -- a human-readable summary
 - Do NOT modify, delete, or overwrite any other file -- not
   tests/test_registration.py, not tests/smoke_test_health.py, not
-  anything under app/, not any other file.
+  tests/conftest.py, not anything under app/, not any other file.
 - Do NOT attempt to run pytest or any shell command yourself. Only write
   the two files above, then stop. The human operator will run the tests
   separately, including the smoke test.
@@ -33,25 +33,33 @@ Do the following:
    response body shape). Use the `client` fixture from tests/conftest.py
    (a FastAPI TestClient) to make the HTTP calls, e.g.
    `client.post("/printers/claim", json={...})`.
-3. Name each test function after the test case it automates, e.g.
+3. Respect each test case's Auth field:
+   - "valid token" -- use the `client` fixture as-is; it already attaches
+     a valid token to every request by default. No extra code needed.
+   - "missing token" -- override the default header for just this call,
+     e.g. `client.post("/printers/register", json={...}, headers={"Authorization": ""})`
+     or by removing the header for that call; expect 422.
+   - "invalid token" -- override with a garbage value, e.g.
+     `headers={"Authorization": "Bearer not-a-real-token"}`; expect 401.
+4. Name each test function after the test case it automates, e.g.
    test_TC_{{ISSUE_KEY}}_01_reject_claim_on_already_claimed_printer.
-4. If a test case's Preconditions require setup (e.g. a printer must
+5. If a test case's Preconditions require setup (e.g. a printer must
    already exist and be claimed), perform that setup at the start of the
    test function using the same client calls -- do not use internal
    store/app functions directly, stay at the API level throughout.
-5. Every test case in reports/testcases/{{ISSUE_KEY}}_test_cases.md must
+6. Every test case in reports/testcases/{{ISSUE_KEY}}_test_cases.md must
    have a corresponding test function. Before finishing, verify this and
    note any gaps in the report's Notes section rather than skipping
    silently.
-6. Read tests/smoke_test_health.py and compare it against the Endpoint
+7. Read tests/smoke_test_health.py and compare it against the Endpoint
    column of this ticket's test cases. If this ticket introduces a new
    endpoint that the smoke test's liveness check would not exercise or
    be aware of, note this in the report's Notes section as a suggestion
    for the human operator -- do NOT edit tests/smoke_test_health.py
    yourself.
-7. Write all test functions into tests/test_{{ISSUE_KEY}}_generated.py.
+8. Write all test functions into tests/test_{{ISSUE_KEY}}_generated.py.
    If that file already exists, overwrite only that file.
-8. Write a human-readable companion report to
+9. Write a human-readable companion report to
    reports/{{ISSUE_KEY}}_test_generation_report.md, formatted as:
    # Test Generation Report: {{ISSUE_KEY}}
    ## Test Cases Covered
@@ -71,4 +79,4 @@ Do the following:
    liveness coverage -- do not edit the file itself)
    ## Notes
    (any test cases that could not be directly automated and why)
-9. Stop after writing both files. Do not run anything.
+10. Stop after writing both files. Do not run anything.

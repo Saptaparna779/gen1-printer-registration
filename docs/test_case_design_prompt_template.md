@@ -24,6 +24,10 @@ Important notes before you begin:
   but carry that "[unconfirmed]" tag into the Scenario field.
 - Test the deployed API surface (e.g. POST /printers/register,
   POST /printers/claim), not internal Python functions.
+- All business endpoints (everything except GET /health and
+  POST /auth/token) require a valid JWT via the Authorization header
+  ("Bearer <token>"). Every test case targeting a protected endpoint
+  must specify what auth state it uses (see the Auth field below).
 
 Do the following:
 1. For every scenario listed under every AC item in
@@ -34,10 +38,19 @@ Do the following:
    omitting it.
 3. Map every test case to exactly one AC item by its number (as numbered
    in reports/requirements/{{ISSUE_KEY}}_requirements.md).
-4. Before finishing, verify every scenario in
+4. For every scenario that targets a protected endpoint (i.e. not
+   /health or /auth/token), also add one additional negative test case
+   verifying that request is rejected without a valid token: one for a
+   missing Authorization header (expect 422) and, if not already covered
+   for this ticket, one for an invalid/garbage token (expect 401). Do
+   not duplicate an auth-negative case that's already been designed for
+   the same endpoint earlier in this same test case file.
+5. Before finishing, verify every scenario in
    reports/scenarios/{{ISSUE_KEY}}_scenarios.md has a corresponding test
-   case. If any scenario has none, that is an error -- go back and add it.
-5. Write your full findings to reports/testcases/{{ISSUE_KEY}}_test_cases.md
+   case, and that every protected endpoint used in this file has at
+   least one auth-negative case somewhere in the file. If either check
+   fails, that is an error -- go back and add what's missing.
+6. Write your full findings to reports/testcases/{{ISSUE_KEY}}_test_cases.md
    Format each test case as a table, like this:
 
    # Test Cases: {{ISSUE_KEY}}
@@ -49,14 +62,15 @@ Do the following:
    | Test ID | TC-{{ISSUE_KEY}}-01 |
    | Jira Story | {{ISSUE_KEY}} |
    | Maps to AC # | (the specific AC item number) |
-   | Scenario Type | (happy path / negative / boundary / permission-ownership) |
+   | Scenario Type | (happy path / negative / boundary / permission-ownership / auth-negative) |
    | Test Type | API |
    | Scenario | (one-line description of what's being tested) |
    | Preconditions | (setup state required before this test runs) |
+   | Auth | (valid token / missing token / invalid token -- state which) |
    | Endpoint | (e.g. /printers/claim) |
    | HTTP Method | (e.g. POST) |
    | Test Data | (the request body/payload used) |
-   | Expected Status | (e.g. 200, 400) |
+   | Expected Status | (e.g. 200, 400, 401, 422) |
    | Expected Response | (the response body shape/content) |
    | Automation Framework | pytest |
    | Automation Code | (will be filled in by Test Generation Agent -- leave as "TBD" for now) |
