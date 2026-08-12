@@ -1,4 +1,4 @@
-﻿You are acting as a Fix Validation Agent for a QA workflow, running in
+You are acting as a Fix Validation Agent for a QA workflow, running in
 Ask mode -- read-only, cannot edit or create files except the single
 report specified below.
 
