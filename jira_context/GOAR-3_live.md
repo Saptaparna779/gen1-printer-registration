@@ -38,3 +38,4 @@ Low to moderate risk. The change is localized to Cloud ID generation and does no
 Score: 85/100
 Justification: The diff satisfies the ticket acceptance criteria and corrects the root cause, but it is a narrow fix and the broader impact on identity-preservation semantics is not fully validated by existing tests.
 - **Saptaparna Dasgupta:** QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/GOAR-3_diff.txt and jira_context/GOAR-3_live.md).
+- **Saptaparna Dasgupta:** QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/GOAR-3_diff.txt and jira_context/GOAR-3_live.md).
