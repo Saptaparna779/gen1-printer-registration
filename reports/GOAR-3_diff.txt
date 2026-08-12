@@ -1,4 +1,4 @@
-﻿diff --git a/app/registration.py b/app/registration.py
+diff --git a/app/registration.py b/app/registration.py
 index a34ceee..947ead5 100644
 --- a/app/registration.py
 +++ b/app/registration.py
