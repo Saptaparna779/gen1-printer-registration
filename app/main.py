@@ -71,7 +71,7 @@ def register_printer(req: RegisterRequest, user_id: str = Depends(verify_token))
 
 
 @app.post("/printers/claim")
-def claim_printer(req: ClaimRequest):
+def claim_printer(req: ClaimRequest, user_id: str = Depends(verify_token)):
     try:
         printer = registration.claim_printer(req.claim_code, req.user_id)
     except InvalidClaimCodeError as exc:
@@ -84,7 +84,7 @@ def claim_printer(req: ClaimRequest):
 
 
 @app.get("/printers/{printer_id}")
-def get_printer(printer_id: str):
+def get_printer(printer_id: str, user_id: str = Depends(verify_token)):
     from app import store
     printer = store.get_printer(printer_id)
     if printer is None:
@@ -102,10 +102,11 @@ def get_printer(printer_id: str):
 
 
 @app.delete("/printers/{printer_id}")
-def deregister_printer(printer_id: str):
+def deregister_printer(printer_id: str, user_id: str = Depends(verify_token)):
     try:
         registration.deregister_printer(printer_id)
     except RegistrationError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     return {"status": "DEREGISTERED", "printer_id": printer_id}
+
 
