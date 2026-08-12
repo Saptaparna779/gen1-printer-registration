@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from app import registration
 from app.registration import RegistrationError, InvalidClaimCodeError
+from app.auth import create_access_token
 
 app = FastAPI(title="GEN 1 Printer Onboarding & Registration (Demo)")
 
@@ -16,6 +17,21 @@ app = FastAPI(title="GEN 1 Printer Onboarding & Registration (Demo)")
 def health_check():
     """Liveness check -- confirms the application is running and reachable."""
     return {"status": "ok"}
+
+
+class TokenRequest(BaseModel):
+    user_id: str
+
+
+@app.post("/auth/token")
+def issue_token(req: TokenRequest):
+    """
+    Demo token issuance endpoint. In a real system this would verify a
+    password or other credential first -- for this demo, any user_id is
+    accepted and issued a signed token.
+    """
+    token = create_access_token(subject=req.user_id)
+    return {"access_token": token, "token_type": "bearer"}
 
 
 class RegisterRequest(BaseModel):
