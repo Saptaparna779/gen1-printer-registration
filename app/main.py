@@ -8,7 +8,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from app import registration
 from app.registration import RegistrationError, InvalidClaimCodeError
-from app.auth import create_access_token
+from app.auth import create_access_token, verify_token
+from fastapi import Depends
 
 app = FastAPI(title="GEN 1 Printer Onboarding & Registration (Demo)")
 
@@ -47,7 +48,7 @@ class ClaimRequest(BaseModel):
 
 
 @app.post("/printers/register")
-def register_printer(req: RegisterRequest):
+def register_printer(req: RegisterRequest, user_id: str = Depends(verify_token)):
     try:
         printer = registration.register_printer(
             serial_number=req.serial_number,
@@ -107,3 +108,4 @@ def deregister_printer(printer_id: str):
     except RegistrationError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     return {"status": "DEREGISTERED", "printer_id": printer_id}
+
