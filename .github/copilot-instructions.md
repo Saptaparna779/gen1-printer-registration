@@ -1,7 +1,7 @@
-﻿This repository contains an agentic QA workflow with six distinct agent
-roles, each defined in its own path-specific instructions file under
-.github/instructions/, and each grounded by its own canonical prompt
-template under docs/:
+﻿This repository contains an agentic QA workflow with seven distinct
+agent roles, each defined in its own path-specific instructions file
+under .github/instructions/, and each grounded by its own canonical
+prompt template under docs/:
 
 - requirements.instructions.md -- fetches a ticket, extracts its
   business requirement and acceptance criteria, and proposes
@@ -12,12 +12,17 @@ template under docs/:
   acceptance criterion, without writing full test cases (active when
   working with reports/scenarios/).
 - test-case-design.instructions.md -- expands approved scenarios into
-  fully specified manual test cases against the real API surface
-  (active when working with reports/testcases/).
+  fully specified manual test cases against the real API surface,
+  including auth-negative cases for protected endpoints (active when
+  working with reports/testcases/).
 - test-generation.instructions.md -- automates approved test cases into
   real, executable pytest tests against real API endpoints, with
   read-only awareness of tests/smoke_test_health.py (active when
   working with tests/).
+- bdd-sanity.instructions.md -- translates the same approved test cases
+  into Cucumber-style Gherkin scenarios and pytest-bdd step definitions,
+  alongside (not replacing) plain pytest generation (active when working
+  with tests/features/ and tests/steps/).
 - fix-validation.instructions.md -- validates a code diff against a
   ticket's approved requirements and cross-checks both test coverage
   and scenario-type coverage (active when working with reports/).
@@ -30,6 +35,11 @@ template under docs/:
 Two earlier separate roles -- context intake and AC enhancement -- have
 been merged into the single Requirements Agent above. Retired templates
 and instructions files are kept for reference under docs/_archive/.
+
+All business endpoints except GET /health and POST /auth/token require a
+valid JWT (Authorization: Bearer <token>). tests/conftest.py's `client`
+fixture attaches a valid token by default; auth-negative test cases
+override it explicitly.
 
 A liveness check (tests/smoke_test_health.py) runs independently of this
 pipeline, proving the application is genuinely reachable over a real
