@@ -28,14 +28,38 @@ Important boundaries (do not violate these):
   reports/testcases/{{ISSUE_KEY}}_test_cases.md specifies. Translate
   exactly those test cases into Gherkin -- no more, no fewer.
 
+CRITICAL -- Given/When/Then discipline (do not violate this structure):
+- Each Scenario tests exactly ONE action. That action is the single When
+  step. Everything that must be true BEFORE that action -- including
+  multi-step setup like "a printer was registered, then claimed" -- goes
+  in Given, expressed as a state the world is already in, NOT replayed
+  as a sequence of its own When/Then steps.
+  WRONG: Given printer exists / When it is registered / Then it succeeds
+         / When it is claimed / Then claim succeeds / When re-registered
+         / Then ...
+  RIGHT: Given a printer has been registered and claimed by user "X"
+         / When it is re-registered / Then the owner is still "X"
+- Then (and And, for closely related assertions on the SAME outcome) may
+  only describe the result of the one When action -- never introduce a
+  new action disguised as a Then.
+- A Scenario should read as ONE clear sentence: given this starting
+  state, when this one thing happens, then this is true. If a test case
+  genuinely requires checking an outcome via a follow-up read (e.g. a
+  GET to confirm state after the main action), that follow-up read may
+  appear as a Then step (e.g. "Then looking up the printer shows...") --
+  this is checking the outcome, not performing a second tested action,
+  so it does not violate the one-action rule.
+- If you find yourself writing more than one When per scenario, stop --
+  fold the earlier When/Then pairs into the Given as a compound setup
+  state instead.
+
 Do the following:
 1. Read every test case in reports/testcases/{{ISSUE_KEY}}_test_cases.md.
 2. For each test case, write one Gherkin Scenario using Given/When/Then
-   (and And, where a step needs multiple actions or assertions),
-   expressed in plain, non-technical language a stakeholder could read
-   without knowing the underlying API. Preserve the test case's intent
-   and expected outcome exactly -- do not simplify away the actual
-   assertion.
+   (and And, per the discipline above), expressed in plain, non-technical
+   language a stakeholder could read without knowing the underlying API.
+   Preserve the test case's intent and expected outcome exactly -- do
+   not simplify away the actual assertion.
 3. Group all scenarios for this ticket under one Feature block at the
    top of the .feature file, with a short Feature description summarizing
    what's being sanity-checked.
@@ -46,6 +70,11 @@ Do the following:
    decorators and the `scenarios()` loader pointing at the .feature file.
    Reuse step functions across scenarios where the step text is
    identical -- do not duplicate step definitions for the same step text.
+   A compound Given step (e.g. "a printer has been registered and
+   claimed by user X") should perform that setup directly inside the
+   Given step function's own body via client calls -- it is still real
+   API-level setup, just not exposed as its own tested When/Then in the
+   scenario text.
 6. Implement each step using the `client` fixture from tests/conftest.py
    (the same FastAPI TestClient used by Test Generation Agent's output)
    to make real HTTP calls -- do not call internal Python functions

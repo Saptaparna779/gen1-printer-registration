@@ -25,6 +25,16 @@ Writing a .feature file with a UTF-8 byte order mark breaks Gherkin
 parsing entirely (a cryptic "expected #FeatureLine" error at line 1).
 Always write .feature files as UTF-8 WITHOUT a BOM. This has been
 directly reproduced and confirmed as a real failure, not a theoretical one.
+## One action per scenario -- confirmed repeatable quality issue
+Each Scenario tests exactly ONE action (one When step). Multi-step setup
+(e.g. "printer was registered, then claimed") belongs in Given as a
+compound starting state, not replayed as its own When/Then pairs. Then/
+And may only describe the outcome of the single When action -- never a
+new action. A follow-up read to confirm an outcome (e.g. a GET after the
+main action) is a Then, not a second tested action. If a scenario has
+more than one When, fold the earlier ones into Given instead. This has
+been directly observed as a real quality failure -- scenarios previously
+generated read like numbered test scripts rather than single behaviors.
 ## Do not run anything yourself
 Write the two files, then stop. Do not attempt to run pytest or any
 other shell command. The human operator runs the tests separately.
@@ -32,7 +42,8 @@ other shell command. The human operator runs the tests separately.
 Write one step function per unique Given/When/Then/And step text. If the
 same step text appears in multiple scenarios, do not duplicate its
 definition -- pytest-bdd matches by step text, and duplicate definitions
-will conflict.
+will conflict. A compound Given step performs its setup directly inside
+that step's own function body via client calls.
 ## Use the same client fixture and auth handling as Test Generation Agent
 Implement every step via the `client` fixture from tests/conftest.py,
 making real HTTP calls -- never call internal Python functions directly.
