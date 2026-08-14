@@ -167,7 +167,7 @@ def test_capabilities_not_recaptured_on_reregistration():
 
     p2 = registration.register_printer(
         serial_number="SN-3000",
-        model_number="HP-C-MFP-9999",
+        model_number="HP-LJ-2060",
         firmware_version="1.0.1",
     )
     caps_after_reregistration = store.get_capabilities(p2.printer_id)

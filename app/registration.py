@@ -9,6 +9,7 @@ Implements the flow described in BUD section 11.1:
   5. Generate + print Welcome/Info page (final success checkpoint)
   6. Roll back completely on failure before the Welcome Page prints
 """
+import logging
 import random
 import string
 import uuid
@@ -18,6 +19,8 @@ from app import store
 from app.models import Printer, PrinterCapabilities, PrinterStatus, ClaimCode
 from app.welcome_page import generate_and_print_welcome_page, WelcomePagePrintError
 from app.xmpp import assign_xmpp_node
+
+logger = logging.getLogger(__name__)
 
 
 class RegistrationError(Exception):
@@ -51,6 +54,18 @@ def _generate_claim_code() -> ClaimCode:
         created_at=now,
         expires_at=now + timedelta(minutes=CLAIM_CODE_TTL_MINUTES),
     )
+
+
+def _model_family(model_number: str) -> str:
+    """
+    GOAR-15: crude model-family extraction used to distinguish a firmware/
+    revision-level model_number change from a materially different physical
+    device, e.g. 'HP-LJ-4200' -> 'HP-LJ', 'HP-LJ-4250' -> 'HP-LJ'.
+    Intentionally simple for now; a real implementation would use a proper
+    model catalog/lookup.
+    """
+    parts = model_number.strip().upper().split("-")
+    return "-".join(parts[:-1]) if len(parts) > 1 else parts[0]
 
 
 def _capture_capabilities(printer_id: str, model_number: str) -> PrinterCapabilities:
@@ -88,6 +103,29 @@ def register_printer(
 
     if existing:
         printer = existing
+
+        # GOAR-15 fix applied: re-registration allowed arbitrary model/firmware
+        # overwrite with no spoofing protection. A model_number change on an
+        # existing serial number is now flagged for review, and a materially
+        # different model family is rejected outright.
+        if printer.model_number != model_number:
+            printer.log(
+                f"GOAR-15: model_number changed on re-registration "
+                f"(old={printer.model_number}, new={model_number}) -- flagged for review"
+            )
+            logger.warning(
+                "GOAR-15: model_number changed on re-registration | "
+                f"serial={serial_number} old_model={printer.model_number} new_model={model_number}"
+            )
+
+            if _model_family(printer.model_number) != _model_family(model_number):
+                raise RegistrationError(
+                    "Re-registration rejected: model family mismatch "
+                    f"(existing='{printer.model_number}', incoming='{model_number}'). "
+                    "This looks like a different physical device reusing the same "
+                    "serial number."
+                )
+
         printer.model_number = model_number
         printer.firmware_version = firmware_version
     else:
@@ -208,4 +246,3 @@ def deregister_printer(printer_id: str) -> None:
     store.delete_capabilities(printer_id)
     store.remove_serial_index(printer.serial_number)
     store.delete_printer(printer_id)
-
