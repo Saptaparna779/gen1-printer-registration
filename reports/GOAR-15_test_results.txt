@@ -1,0 +1,76 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.14.6, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration
+plugins: anyio-4.14.2, bdd-8.1.0
+collecting ... collected 31 items
+
+tests/test_registration.py::test_register_new_printer_success PASSED     [  3%]
+tests/test_registration.py::test_claim_printer_success PASSED            [  6%]
+tests/test_registration.py::test_capabilities_captured_for_color_mfp_model PASSED [  9%]
+tests/test_registration.py::test_claim_printer_rejects_already_claimed_printer PASSED [ 12%]
+tests/test_registration.py::test_printer_email_id_is_unique_across_printers PASSED [ 16%]
+tests/test_registration.py::test_generate_printer_email_id_retries_on_collision PASSED [ 19%]
+tests/test_registration.py::test_register_printer_rejects_whitespace_only_fields PASSED [ 22%]
+tests/test_registration.py::test_xmpp_node_not_reassigned_on_reregistration PASSED [ 25%]
+tests/test_registration.py::test_registration_history_distinguishes_reregistration PASSED [ 29%]
+tests/test_registration.py::test_claim_printer_rejects_expired_claim_code PASSED [ 32%]
+tests/test_registration.py::test_capabilities_not_recaptured_on_reregistration PASSED [ 35%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_01_reregistration_with_changed_model_number_is_flagged_and_logged PASSED [ 38%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_02_register_rejected_when_authorization_header_missing PASSED [ 41%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_03_register_rejected_with_invalid_bearer_token PASSED [ 45%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_04_reregistration_with_unchanged_model_number_is_not_flagged PASSED [ 48%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_05_reregistration_with_different_model_family_is_rejected PASSED [ 51%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_06_reregistration_with_same_family_different_revision_is_accepted PASSED [ 54%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_07_reregistration_with_matching_model_and_new_firmware_completes_end_to_end PASSED [ 58%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_08_reregistration_with_differently_cased_same_family_model_number_succeeds PASSED [ 61%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_09_reregistration_with_whitespace_and_case_only_difference_is_treated_as_unchanged PASSED [ 64%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_10_model_family_classification_matches_heuristic_for_sample_pairs PASSED [ 67%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_11_reregistration_of_claimed_printer_preserves_ownership PASSED [ 70%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_12_claim_rejected_when_authorization_header_missing PASSED [ 74%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_13_claim_rejected_with_invalid_bearer_token PASSED [ 77%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_14_get_printer_rejected_when_authorization_header_missing PASSED [ 80%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_15_get_printer_rejected_with_invalid_bearer_token PASSED [ 83%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_16_reregistration_of_claimed_printer_with_same_family_change_documents_current_behavior PASSED [ 87%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_17_model_number_change_log_record_has_discrete_structured_fields PASSED [ 90%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_18_same_family_model_change_succeeds_and_is_logged PASSED [ 93%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_19_different_family_change_rejected_and_stored_record_unchanged PASSED [ 96%]
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_20_rejected_reregistration_produces_zero_partial_side_effects PASSED [100%]
+
+============================== warnings summary ===============================
+venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_registration.py: 10 warnings
+tests/test_GOAR-15_generated.py: 21 warnings
+  <string>:13: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+
+tests/test_registration.py: 65 warnings
+tests/test_GOAR-15_generated.py: 174 warnings
+  C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration\app\models.py:54: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    f"{datetime.utcnow().isoformat()} :: {event}"
+
+tests/test_registration.py: 14 warnings
+tests/test_GOAR-15_generated.py: 32 warnings
+  C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration\app\registration.py:51: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_registration.py::test_claim_printer_success
+tests/test_registration.py::test_claim_printer_rejects_already_claimed_printer
+tests/test_registration.py::test_claim_printer_rejects_expired_claim_code
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_11_reregistration_of_claimed_printer_preserves_ownership
+tests/test_GOAR-15_generated.py::test_TC_GOAR_15_16_reregistration_of_claimed_printer_with_same_family_change_documents_current_behavior
+  C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration\app\registration.py:225: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    if datetime.utcnow() > target.claim_code.expires_at:
+
+tests/test_registration.py::test_claim_printer_rejects_expired_claim_code
+  C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration\tests\test_registration.py:150: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    printer.claim_code.expires_at = datetime.utcnow() - timedelta(minutes=1)
+
+tests/test_GOAR-15_generated.py: 20 warnings
+  C:\Users\saptaparna.dasgupta\Desktop\gen1-printer-onboarding-and-registration\gen1-printer-registration\app\auth.py:29: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+====================== 31 passed, 343 warnings in 0.56s =======================
