@@ -108,14 +108,19 @@ def register_printer(
         # overwrite with no spoofing protection. A model_number change on an
         # existing serial number is now flagged for review, and a materially
         # different model family is rejected outright.
-        if printer.model_number != model_number:
+        if printer.model_number.strip().upper() != model_number.strip().upper():
             printer.log(
                 f"GOAR-15: model_number changed on re-registration "
                 f"(old={printer.model_number}, new={model_number}) -- flagged for review"
             )
             logger.warning(
                 "GOAR-15: model_number changed on re-registration | "
-                f"serial={serial_number} old_model={printer.model_number} new_model={model_number}"
+                f"serial={serial_number} old_model={printer.model_number} new_model={model_number}",
+                extra={
+                    "serial_number": serial_number,
+                    "old_model": printer.model_number,
+                    "new_model": model_number,
+                },
             )
 
             if _model_family(printer.model_number) != _model_family(model_number):
