@@ -246,3 +246,4 @@ def deregister_printer(printer_id: str) -> None:
     store.delete_capabilities(printer_id)
     store.remove_serial_index(printer.serial_number)
     store.delete_printer(printer_id)
+
