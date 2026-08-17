@@ -1,19 +1,345 @@
-diff --git a/app/registration.py b/app/registration.py
-index a34ceee..947ead5 100644
---- a/app/registration.py
-+++ b/app/registration.py
-@@ -102,6 +102,9 @@ def register_printer(
-     printer.log("Re-registration started" if existing else "Registration started")
- 
-     # Step 1: Cloud identity
-+    # GOAR-3: always generate a NEW Cloud ID on every registration call --
-+    # including re-registration -- per business rule 3/6. Never reuse an
-+    # existing printer's cloud_id, even if one is already on record.
-     printer.cloud_id = _generate_cloud_id()
- 
-     printer.printer_email_id = _generate_printer_email_id()
-@@ -205,3 +208,4 @@ def deregister_printer(printer_id: str) -> None:
-     store.delete_capabilities(printer_id)
-     store.remove_serial_index(printer.serial_number)
-     store.delete_printer(printer_id)
+diff --git a/tests/features/GOAR-3.feature b/tests/features/GOAR-3.feature
+new file mode 100644
+index 0000000..205e1bf
+--- /dev/null
++++ b/tests/features/GOAR-3.feature
+@@ -0,0 +1,64 @@
++# Sanity coverage for GOAR-3. Every test case in
++# reports/testcases/GOAR-3_test_cases.md (TC-GOAR-3-01 through
++# TC-GOAR-3-09) has a corresponding Scenario below -- none were skipped.
++# All nine test cases use a valid auth token, so no scenario overrides
++# the Authorization header.
 +
++Feature: Printer re-registration always issues a fresh Cloud ID
++  Re-registering a printer (for example after a factory reset) must
++  always produce a brand-new Cloud ID rather than reusing the old one,
++  since downstream billing and subscription systems key off Cloud ID.
++  This also sanity-checks that Printer Email ID and Claim Code keep
++  regenerating on re-registration, that a claimed printer's status and
++  owner survive re-registration untouched, and that a failed
++  re-registration attempt is fully rolled back rather than leaving a
++  stale Cloud ID behind.
++
++  Scenario: Re-registering a printer generates a new Cloud ID
++    Given a printer has been registered with serial number "SN-1001"
++    When the printer is re-registered with the same serial number "SN-1001"
++    Then the re-registration succeeds with status "REGISTERED"
++    And the new Cloud ID is different from the original Cloud ID
++
++  Scenario: Re-registering a printer regenerates the printer email and claim code
++    Given a printer has been registered with serial number "SN-1002"
++    When the printer is re-registered with the same serial number "SN-1002" and an updated firmware version "1.0.1"
++    Then the printer email address is different from the original and follows the expected format
++    And the claim code is different from the original and follows the expected format
++
++  Scenario: Re-registering a claimed printer gets a new Cloud ID but keeps its claimed status
++    Given a printer has been registered with serial number "SN-1003" and claimed by user "user-alpha"
++    When the printer is re-registered with the same serial number "SN-1003"
++    Then the re-registration succeeds with status "CLAIMED"
++    And the new Cloud ID is different from the original Cloud ID
++
++  Scenario: Re-registering a claimed printer preserves its owner
++    Given a printer has been registered with serial number "SN-1004b" and claimed by user "user-beta"
++    When the printer is re-registered with the same serial number "SN-1004b"
++    Then looking up the printer shows its owner is still "user-beta" and its status is still "CLAIMED"
++
++  Scenario: Three consecutive registrations produce three distinct Cloud IDs
++    Given no printer is registered yet for serial number "SN-1005"
++    When the printer is registered three times in succession with serial number "SN-1005"
++    Then all three Cloud IDs returned are different from one another
++
++  Scenario: The second re-registration's Cloud ID differs from the very first Cloud ID
++    Given no printer is registered yet for serial number "SN-1006"
++    When the printer is registered three times in succession with serial number "SN-1006"
++    Then the Cloud ID from the second re-registration is different from the very first Cloud ID
++
++  Scenario: Recovery after a failed re-registration still gets a fresh Cloud ID
++    Given a printer has been registered with serial number "SN-1007", and a re-registration attempt for it failed and was rolled back
++    When the printer is re-registered with the same serial number "SN-1007"
++    Then the new Cloud ID is different from the original Cloud ID
++    And a new printer ID is issued, different from the original
++
++  Scenario: A failed re-registration is fully rolled back
++    Given a printer has been registered with serial number "SN-1008"
++    When the printer for serial number "SN-1008" is re-registered with a simulated Welcome Page failure
++    Then the re-registration fails with a Welcome Page print error and the printer record is fully removed
++
++  Scenario: Re-registration after deregistration generates a new Cloud ID
++    Given a printer has been registered with serial number "SN-1009" and then deregistered
++    When the printer is re-registered with the same serial number "SN-1009"
++    Then the new Cloud ID is different from the original Cloud ID
+diff --git a/tests/steps/test_GOAR-3_steps.py b/tests/steps/test_GOAR-3_steps.py
+new file mode 100644
+index 0000000..8ef0d82
+--- /dev/null
++++ b/tests/steps/test_GOAR-3_steps.py
+@@ -0,0 +1,269 @@
++"""
++pytest-bdd step definitions for GOAR-3: re-registration must always
++generate a new Cloud ID (per business rule 3/6), while Printer Email ID
++and Claim Code regeneration, claimed-printer status/ownership, and
++deregister-then-re-register behavior remain correct.
++
++Mirrors tests/test_GOAR-3_generated.py's coverage of
++reports/testcases/GOAR-3_test_cases.md, but expressed as Gherkin
++scenarios (tests/features/GOAR-3.feature) for stakeholder readability.
++Every step below makes real HTTP calls through the `client` fixture from
++tests/conftest.py -- no internal app functions are called directly. All
++test cases use a valid auth token, so no step overrides the
++Authorization header.
++"""
++import re
++
++from pytest_bdd import given, parsers, scenarios, then, when
++
++scenarios("../features/GOAR-3.feature")
++
++CLOUD_ID_PATTERN = re.compile(r"^CID-[A-F0-9]{12}$")
++EMAIL_PATTERN = re.compile(r"^[a-z0-9]{10}@print\.hpeprint\.com$")
++CLAIM_CODE_PATTERN = re.compile(r"^[A-Z0-9]{8}$")
++
++
++def _post_register(client, serial, firmware="1.0.0", simulate_failure=None):
++    payload = {
++        "serial_number": serial,
++        "model_number": "HP-M404",
++        "firmware_version": firmware,
++    }
++    if simulate_failure is not None:
++        payload["simulate_welcome_page_failure"] = simulate_failure
++    return client.post("/printers/register", json=payload)
++
++
++def _baseline_from_response(serial, response):
++    body = response.json()
++    return {
++        "serial_number": serial,
++        "printer_id": body["printer_id"],
++        "cloud_id": body["cloud_id"],
++        "printer_email_id": body["printer_email_id"],
++        "claim_code": body["claim_code"],
++    }
++
++
++def _capture_result(context, response):
++    body = response.json()
++    context["response_status_code"] = response.status_code
++    context["response_body"] = body
++    context["new_printer_id"] = body.get("printer_id")
++    context["new_cloud_id"] = body.get("cloud_id")
++    context["new_status"] = body.get("status")
++    context["new_printer_email_id"] = body.get("printer_email_id")
++    context["new_claim_code"] = body.get("claim_code")
++    return context
++
++
++# ---------------------------------------------------------------------
++# Given
++# ---------------------------------------------------------------------
++
++
++@given(
++    parsers.parse('a printer has been registered with serial number "{serial}"'),
++    target_fixture="context",
++)
++def printer_already_registered(client, serial):
++    response = _post_register(client, serial)
++    assert response.status_code == 200
++    body = response.json()
++    assert body["status"] == "REGISTERED"
++    return _baseline_from_response(serial, response)
++
++
++@given(
++    parsers.parse('no printer is registered yet for serial number "{serial}"'),
++    target_fixture="context",
++)
++def no_printer_registered_yet(serial):
++    return {"serial_number": serial}
++
++
++@given(
++    parsers.parse(
++        'a printer has been registered with serial number "{serial}" '
++        'and claimed by user "{user}"'
++    ),
++    target_fixture="context",
++)
++def printer_registered_and_claimed(client, serial, user):
++    registered = _post_register(client, serial)
++    assert registered.status_code == 200
++    context = _baseline_from_response(serial, registered)
++
++    claimed = client.post(
++        "/printers/claim",
++        json={"claim_code": context["claim_code"], "user_id": user},
++    )
++    assert claimed.status_code == 200
++    claimed_body = claimed.json()
++    assert claimed_body["status"] == "CLAIMED"
++    assert claimed_body["owner_user_id"] == user
++    context["owner_user_id"] = user
++    return context
++
++
++@given(
++    parsers.parse(
++        'a printer has been registered with serial number "{serial}", '
++        "and a re-registration attempt for it failed and was rolled back"
++    ),
++    target_fixture="context",
++)
++def printer_registered_then_failed_reregistration(client, serial):
++    registered = _post_register(client, serial)
++    assert registered.status_code == 200
++    context = _baseline_from_response(serial, registered)
++
++    failed = _post_register(client, serial, simulate_failure=True)
++    assert failed.status_code == 422
++    return context
++
++
++@given(
++    parsers.parse(
++        'a printer has been registered with serial number "{serial}" '
++        "and then deregistered"
++    ),
++    target_fixture="context",
++)
++def printer_registered_then_deregistered(client, serial):
++    registered = _post_register(client, serial)
++    assert registered.status_code == 200
++    context = _baseline_from_response(serial, registered)
++
++    deregistered = client.delete(f"/printers/{context['printer_id']}")
++    assert deregistered.status_code == 200
++    assert deregistered.json() == {
++        "status": "DEREGISTERED",
++        "printer_id": context["printer_id"],
++    }
++    return context
++
++
++# ---------------------------------------------------------------------
++# When
++# ---------------------------------------------------------------------
++
++
++@when(parsers.parse('the printer is re-registered with the same serial number "{serial}"'))
++def printer_reregistered(client, context, serial):
++    response = _post_register(client, serial)
++    _capture_result(context, response)
++
++
++@when(
++    parsers.parse(
++        'the printer is re-registered with the same serial number "{serial}" '
++        'and an updated firmware version "{firmware}"'
++    )
++)
++def printer_reregistered_with_firmware(client, context, serial, firmware):
++    response = _post_register(client, serial, firmware=firmware)
++    _capture_result(context, response)
++
++
++@when(
++    parsers.parse(
++        "the printer is registered three times in succession "
++        'with serial number "{serial}"'
++    )
++)
++def printer_registered_three_times(client, context, serial):
++    cloud_ids = []
++    for _ in range(3):
++        response = _post_register(client, serial)
++        assert response.status_code == 200
++        cloud_ids.append(response.json()["cloud_id"])
++    context["cloud_ids"] = cloud_ids
++
++
++@when(
++    parsers.parse(
++        'the printer for serial number "{serial}" is re-registered '
++        "with a simulated Welcome Page failure"
++    )
++)
++def printer_reregistered_with_failure(client, context, serial):
++    response = _post_register(client, serial, simulate_failure=True)
++    context["response_status_code"] = response.status_code
++    context["response_body"] = response.json()
++
++
++# ---------------------------------------------------------------------
++# Then
++# ---------------------------------------------------------------------
++
++
++@then(parsers.parse('the re-registration succeeds with status "{status}"'))
++def reregistration_succeeds_with_status(context, status):
++    assert context["new_status"] == status
++
++
++@then("the new Cloud ID is different from the original Cloud ID")
++def new_cloud_id_differs(context):
++    assert context["response_status_code"] == 200
++    assert CLOUD_ID_PATTERN.match(context["new_cloud_id"])
++    assert context["new_cloud_id"] != context["cloud_id"]
++
++
++@then("a new printer ID is issued, different from the original")
++def new_printer_id_differs(context):
++    assert context["new_printer_id"] != context["printer_id"]
++
++
++@then("the printer email address is different from the original and follows the expected format")
++def printer_email_differs(context):
++    assert EMAIL_PATTERN.match(context["new_printer_email_id"])
++    assert context["new_printer_email_id"] != context["printer_email_id"]
++
++
++@then("the claim code is different from the original and follows the expected format")
++def claim_code_differs(context):
++    assert CLAIM_CODE_PATTERN.match(context["new_claim_code"])
++    assert context["new_claim_code"] != context["claim_code"]
++
++
++@then(
++    parsers.parse(
++        'looking up the printer shows its owner is still "{user}" '
++        'and its status is still "CLAIMED"'
++    )
++)
++def owner_and_status_unchanged(client, context, user):
++    lookup = client.get(f"/printers/{context['printer_id']}")
++    assert lookup.status_code == 200
++    body = lookup.json()
++    assert body["owner_user_id"] == user
++    assert body["status"] == "CLAIMED"
++
++
++@then("all three Cloud IDs returned are different from one another")
++def three_cloud_ids_distinct(context):
++    cloud_id_1, cloud_id_2, cloud_id_3 = context["cloud_ids"]
++    for cloud_id in (cloud_id_1, cloud_id_2, cloud_id_3):
++        assert CLOUD_ID_PATTERN.match(cloud_id)
++    assert cloud_id_1 != cloud_id_2
++    assert cloud_id_2 != cloud_id_3
++    assert cloud_id_1 != cloud_id_3
++
++
++@then("the Cloud ID from the second re-registration is different from the very first Cloud ID")
++def third_cloud_id_differs_from_first(context):
++    cloud_id_1 = context["cloud_ids"][0]
++    cloud_id_3 = context["cloud_ids"][2]
++    assert cloud_id_3 != cloud_id_1
++
++
++@then("the re-registration fails with a Welcome Page print error and the printer record is fully removed")
++def reregistration_rolled_back(client, context):
++    assert context["response_status_code"] == 422
++    expected_detail = f"Welcome page failed to print for printer_id={context['printer_id']}"
++    assert context["response_body"]["detail"] == expected_detail
++
++    lookup = client.get(f"/printers/{context['printer_id']}")
++    assert lookup.status_code == 404
++    assert lookup.json()["detail"] == "Printer not found"
