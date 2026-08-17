@@ -19,3 +19,5 @@ rejected or requires explicit confirmation.
 Legitimate re-registrations with matching or compatible model/firmware
 data continue to work as before.
 
+## Comments
+- **Saptaparna Dasgupta:** QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/GOAR-15_diff.txt and jira_context/GOAR-15_live.md).
