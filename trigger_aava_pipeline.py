@@ -169,12 +169,12 @@ def run_pipeline(ticket_id: str):
     Run all four agents in sequence.
     """
     aava_token = os.environ.get("AAVA_API_TOKEN")
-    github_pat = os.environ.get("GITHUB_PAT")
+    github_pat = os.environ.get("GH_PAT")
     jira_pat   = os.environ.get("JIRA_PAT")
 
     missing_secrets = []
     if not aava_token: missing_secrets.append("AAVA_API_TOKEN")
-    if not github_pat: missing_secrets.append("GITHUB_PAT")
+    if not github_pat: missing_secrets.append("GH_PAT")
     if not jira_pat:   missing_secrets.append("JIRA_PAT")
 
     if missing_secrets:
