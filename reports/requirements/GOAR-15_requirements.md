@@ -2,230 +2,258 @@
 
 ## 1. Summary
 
-Re-registration of an existing printer (same serial number) was previously allowed to overwrite the stored `model_number` and `firmware_version` with no spoofing protection. This meant a completely different physical device could reuse a serial number, silently changing the printer identity tied to that serial and potentially impacting ownership and downstream systems.
-
-GOAR-15 introduces validation and observability to this path: any change to `model_number` on re-registration is logged and flagged for review, and a change to a materially different model family is rejected outright. Legitimate re-registrations with matching or compatible model/firmware data (including for already-claimed printers) must continue to succeed and behave consistently with the core registration business rules.
+Re-registration of an existing printer serial number was previously allowed to overwrite `model_number` and `firmware_version` on the stored printer record with no validation, which created a spoofing risk: a completely different physical device could re-use the same serial number and silently replace the original printer identity. This ticket adds protections so that any `model_number` change on re-registration is logged and flagged for review, and re-registration with a materially different model family is rejected outright. Legitimate same-model and same-family re-registrations, including for already-claimed printers, must still behave as before (Cloud ID regeneration, email/XMPP assignment, ownership preserved) and rejected re-registrations must leave no partial side effects.
 
 ## 2. Affected Components
 
 From the diff and implementation:
 
 - `tests/features/GOAR-15.feature`
-  - New Gherkin feature file defining scenarios for GOAR-15 behaviour, including model change logging, model-family rejection, auth failures, claimed-printer re-registration, structured logging, and rollback behaviour.
+  - New Gherkin feature file describing end-to-end scenarios for GOAR-15.
+  - Covers re-registration behavior for model-number changes, model-family rejection, claimed printer behavior, auth failures, lookup behavior, logging structure, and side-effect rollback.
 
 - `tests/steps/test_GOAR-15_steps.py`
-  - New pytest-bdd step definitions implementing the GOAR-15 feature scenarios via real HTTP calls to the FastAPI app.
+  - New pytest-bdd step definitions implementing the scenarios in `tests/features/GOAR-15.feature`.
+  - Interacts with the service via HTTP through `app.main.app` using `TestClient`, exercising `/printers/register`, `/printers/claim`, and `/printers/{printer_id}`.
 
 - `app/registration.py`
-  - `logger = logging.getLogger(__name__)` — module-level logger for structured warning logs (GOAR-15 observability).
-  - `_model_family(model_number: str) -> str` — new helper that normalizes the `model_number` via `strip().upper()` and extracts a crude "model family" (everything except the last dash-separated segment, or the whole string if no dash).
-  - `register_printer()` — updated re-registration logic for existing printers:
-    - Compares normalized existing vs incoming `model_number` using `strip().upper()`.
-    - Logs a history entry and `logger.warning` when the normalized model changes, including structured fields `serial_number`, `old_model`, and `new_model` via the `extra` dict.
-    - Uses `_model_family()` to detect materially different model families and raises `RegistrationError` with a specific detail message when families differ.
-    - Preserves subsequent registration steps (Cloud ID, email, capabilities, XMPP, welcome page, rollback) unchanged.
+  - `register_printer()`
+    - Adds GOAR-15 logic in the `if existing:` (re-registration) branch:
+      - Detects `model_number` change on re-registration.
+      - Logs a history entry and flags the event for review.
+      - Emits a structured `logger.warning` with discrete fields `serial_number`, `old_model`, `new_model`.
+      - Rejects re-registration with `RegistrationError` if `_model_family(existing_model)` and `_model_family(incoming_model)` differ.
+    - Leaves existing Cloud ID regeneration, email ID generation, claim code handling, capabilities capture, XMPP assignment, and rollback unchanged.
+  - Adds `_model_family()` helper to classify model numbers into families.
+  - Configures module-level `logger = logging.getLogger(__name__)` to support structured warnings.
 
 ## 3. Applicable Business Rules
 
-The following rules from `docs/business_rules.md` clearly apply to GOAR-15:
+### Rule 1 — Registration success depends on Welcome/Info Page
 
-1. **Registration Rollback and Completeness**
+> "Registration is successful **only if** the Welcome/Info Page prints."  
+> (docs/business_rules.md, Registration section)
 
-   - Exact sentence: "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained." (Rule 2)
+Relation to this ticket:
+- Rejected re-registrations due to model-family mismatch must occur before the Welcome Page prints, and must be treated as failed registrations. The scenarios "A rejected re-registration produces zero partial side effects" and related steps verify that such failures do not proceed to the Welcome Page or create inconsistent success indications.
 
-   - Relation to this ticket:
-     - GOAR-15’s rejection of a materially different model family must behave like a pre-Welcome-Page failure: it must not leave partial state (new Cloud ID, capabilities, email, XMPP, or serial index) in the system. The new tests explicitly assert that rejected re-registrations leave Cloud ID, printer email, XMPP node, and history unchanged apart from the review-flag entry, aligning with this rollback requirement.
+### Rule 2 — Rollback on failure before Welcome Page
 
-2. **Cloud ID on Re-registration**
+> "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained."  
+> (docs/business_rules.md, Registration section)
 
-   - Exact sentences:
-     - "Re-registering a printer (same serial number) **always generates a new Cloud ID** — the old identity is not reused." (Rule 3)
-     - "Cloud ID: system-generated, unique, regenerated on every re-registration." (Rule 6)
+Relation to this ticket:
+- GOAR-15 requires that a rejected re-registration (model-family mismatch) leaves no partial side effects. The implementation raises `RegistrationError` in `register_printer()` before Cloud ID creation and persistence steps, and the scenarios "A rejected re-registration produces zero partial side effects" and "A different-family model number change is rejected and the stored record is left unchanged" assert that Cloud ID, email, XMPP node, and history side-effect entries are unchanged except for the review flag.
 
-   - Relation to this ticket:
-     - GOAR-15 introduces additional checks before registration succeeds. For legitimate re-registrations that pass the new spoofing protection, these rules still require that a new Cloud ID be generated. The scenarios like "Re-registering with a same-family but different revision is accepted" and "Re-registering with matching model number and updated firmware completes end-to-end" assert that a new Cloud ID is present and different from the original, ensuring the existing Cloud ID behaviour is preserved.
+### Rule 3 — Re-registration always generates a new Cloud ID
 
-3. **Printer Email ID Uniqueness and Behaviour**
+> "Re-registering a printer (same serial number) **always generates a new Cloud ID** — the old identity is not reused."  
+> (docs/business_rules.md, Registration section)
 
-   - Exact sentence: "Printer Email ID: must be globally unique; used for Email-to-Print." (Rule 7)
+Relation to this ticket:
+- Accepted re-registrations (same model or same-family model changes) must continue to generate a new Cloud ID. The implementation retains `_generate_cloud_id()` assignment on every call and the scenarios "Re-registering with a same-family but different revision is accepted" and "Re-registering with matching model number and updated firmware completes end-to-end" assert the presence of a new Cloud ID and that it differs from the original.
 
-   - Relation to this ticket:
-     - GOAR-15 does not change email generation logic, but its scenarios assert that successful re-registrations issue a new printer email address different from the original. Rejected re-registrations must not accidentally issue or change printer email IDs, preserving uniqueness and avoiding partial side effects.
+### Rule 4 — Capabilities capture once at registration
 
-4. **Claim Code Semantics and Single-Use Behaviour**
+> "Printer capabilities are captured once at registration time so downstream services never need to re-query the device."  
+> (docs/business_rules.md, Registration section)
 
-   - Exact sentences:
-     - "Claim Code: a **temporary** security token printed on the Welcome Page." (Rule 8)
-     - "Expired or invalid claim codes must be rejected." (Rule 8)
-     - "A claim code can only be used once." (Rule 8)
+Relation to this ticket:
+- GOAR-15’s rejection behavior must not inadvertently trigger capabilities recapture for rejected re-registrations, and accepted re-registrations should preserve the intended behavior around capabilities history. The scenarios for full re-registration success and for rejected re-registration with zero side effects validate capability-related history entries.
 
-   - Relation to this ticket:
-     - GOAR-15 introduces tests around claiming behaviour and auth, including claimed printers that are re-registered. While the core claim-code logic is not changed in this diff, scenarios like "Re-registering a claimed printer with an unchanged model number preserves ownership" rely on claim-code semantics being honoured and on the fact that only successful registrations that reach the welcome page print should produce usable claim codes.
+### Rule 5 — XMPP node assignment
 
-5. **Claiming & Ownership Protections**
+> "A printer is assigned an XMPP node as part of registration, enabling persistent cloud connectivity."  
+> (docs/business_rules.md, Registration section)
 
-   - Exact sentence: "Registration/re-registration logic must never silently overwrite or wipe out an existing owner's claim on a printer." (Rule 11)
+Relation to this ticket:
+- Accepted, legitimate re-registrations must continue to assign (or retain) XMPP nodes, while rejected re-registrations must not alter XMPP assignment. The scenarios "Re-registering with matching model number and updated firmware completes end-to-end" and "A rejected re-registration produces zero partial side effects" check both positive and negative expectations for XMPP assignment.
 
-   - Relation to this ticket:
-     - GOAR-15 explicitly tests the re-registration behaviour for claimed printers, ensuring that:
-       - When an already-claimed printer is re-registered with an unchanged model number or a same-family change, ownership and status remain "CLAIMED".
-       - Model-family mismatch re-registrations are rejected, and their side effects are limited to review-flag history entries, leaving ownership untouched.
-     - This aligns with the rule’s requirement that re-registration must not silently disrupt existing claims.
+### Rule 6 — Cloud ID uniqueness & regeneration
 
-6. **Deregistration and Re-registration Cloud Behaviour**
+> "Cloud ID: system-generated, unique, regenerated on every re-registration."  
+> (docs/business_rules.md, Cloud ID, Printer Email ID & Claim Code section)
 
-   - Exact sentence: "Re-registration after deregistration always generates a new Cloud ID (per rule 3/6)." (Rule 13)
+Relation to this ticket:
+- GOAR-15 adds extra logic before Cloud ID generation for spoofing detection. It must not violate the requirement that accepted re-registrations produce new Cloud IDs. Several scenarios explicitly assert new Cloud IDs that differ from prior values, and rejection scenarios confirm that Cloud IDs remain unchanged when re-registration is rejected.
 
-   - Relation to this ticket:
-     - GOAR-15 scopes its tests to re-registration of existing printers, including claimed ones, but does not directly address the deregister-then-reregister path. However, the unchanged `register_printer()` logic for successful re-registrations still complies with this rule: any re-registration, including after a prior deregistration, will generate a new Cloud ID as long as it passes the spoofing protection.
+### Rule 7 — Printer Email ID uniqueness
 
-7. **Non-Functional Expectations / Observability**
+> "Printer Email ID: must be globally unique; used for Email-to-Print."  
+> (docs/business_rules.md, Cloud ID, Printer Email ID & Claim Code section)
 
-   - Exact sentence: "Registration failures should be observable (structured logging / telemetry), not silent — see BUD Section 10, \"Limited observability\" as a known platform risk." (Rule 14)
+Relation to this ticket:
+- Legitimate re-registrations must continue to receive new, unique email IDs; rejected re-registrations must not alter email IDs. The scenario "Re-registering with matching model number and updated firmware completes end-to-end" asserts a new printer email address different from the original, and the side-effect rollback scenario asserts email address unchanged for rejected re-registrations.
 
-   - Relation to this ticket:
-     - GOAR-15 is primarily about observability and detection of suspicious re-registrations. The diff introduces a module-level logger and warning logs for model number changes, including structured fields. The Gherkin scenarios and step definitions verify that these logs are emitted and carry discrete attributes (`serial_number`, `old_model`, `new_model`), fulfilling the structured logging requirement.
+### Rule 8 — Claim Code as temporary, single-use token
+
+> "Claim Code: a **temporary** security token printed on the Welcome Page.  
+> - Expired or invalid claim codes must be rejected.  
+> - A claim code can only be used once."  
+> (docs/business_rules.md, Cloud ID, Printer Email ID & Claim Code section)
+
+Relation to this ticket:
+- GOAR-15’s scenarios include registering and claiming printers, and then re-registering them. The fix must not violate claim code semantics, and must preserve claim behavior on re-registration, particularly for already-claimed printers. Scenarios for claimed printers validate that ownership and claimed status remain intact.
+
+### Rule 9–11 — Claiming & Ownership
+
+> "A printer becomes visible to a user's applications only after a successful claim." (Rule 9)
+
+> "Claiming enables subscriptions (e.g. Instant Ink) and remote management." (Rule 10)
+
+> "Registration/re-registration logic must never silently overwrite or wipe out an existing owner's claim on a printer." (Rule 11)
+
+Relation to this ticket:
+- GOAR-15 directly enforces Rule 11 in the spoofing context by rejecting re-registrations that appear to come from a different physical device (different model family) sharing a serial number. Scenarios "Re-registering a claimed printer with an unchanged model number preserves ownership" and "Re-registering a claimed printer with a same-family model change still flags it for review" verify that claimed printers retain their owner identity and status through legitimate re-registrations.
+
+### Rule 12–13 — Deregistration
+
+> "Deregistration must remove all cloud associations and printer data (GDPR compliance)." (Rule 12)
+
+> "Re-registration after deregistration always generates a new Cloud ID (per rule 3/6)." (Rule 13)
+
+Relation to this ticket:
+- These rules are not directly exercised by the GOAR-15 diff (no changes in `deregister_printer()`), but they constrain expectations for re-registration behavior. The new re-registration protections must not interfere with post-deregistration re-registration semantics; however, this ticket’s tests do not explicitly cover that path.
+
+### Rule 14 — Observability
+
+> "Registration failures should be observable (structured logging / telemetry), not silent — see BUD Section 10, 'Limited observability' as a known platform risk."  
+> (docs/business_rules.md, Non-Functional Expectations section)
+
+Relation to this ticket:
+- GOAR-15 explicitly implements structured logging for model-number changes on re-registration: history entries flagged for review and `logger.warning` records with discrete fields. Scenarios verify that warnings are logged, that they include serial/model information, and that discrete structured fields are present on the log record.
 
 ## 4. Original Acceptance Criteria
 
-Copied from `jira_context/GOAR-15_live.md`:
+From `jira_context/GOAR-15_live.md`:
 
-> When re-registering an existing serial number, register_printer() updates
-> model_number and firmware_version on the existing record with no
-> validation that this looks like the same physical device. A completely
-> different model_number could silently overwrite the original identity
-> tied to that serial number, with no protection against serial-number
-> reuse or spoofing across different physical printers.
-> Acceptance Criteria:
-> At minimum, a re-registration that changes model_number from what was
-> previously recorded is flagged/logged as a notable event for review.
-> (Stretch) Re-registration with a materially different model family is
-> rejected or requires explicit confirmation.
-> Legitimate re-registrations with matching or compatible model/firmware
-> data continue to work as before.
+> At minimum, a re-registration that changes model_number from what was previously recorded is flagged/logged as a notable event for review.
+>
+> (Stretch) Re-registration with a materially different model family is rejected or requires explicit confirmation.
+>
+> Legitimate re-registrations with matching or compatible model/firmware data continue to work as before.
 
 ## 5. Adopted Additional Requirements
 
-The following additions are derived strictly from `docs/business_rules.md` or from recognised edge case categories. They are to be treated as in-scope acceptance criteria for GOAR-15.
+### 5.1 Structured logging fields for observability
 
-1. **Normalized Model-Number Comparison for Change Detection**
+**Requirement statement:**  
+For any re-registration where `model_number` changes, the warning log entry must include discrete structured fields `serial_number`, `old_model`, and `new_model` so downstream systems can reliably filter and analyze suspicious events.
 
-   - Requirement statement:
-     - The model-number change check in `register_printer()` must compare normalized model numbers (e.g., both values passed through `.strip().upper()`) so that case- or whitespace-only differences (e.g., `"HP-LJ-2055"` vs `" hp-lj-2055"`) do not trigger a model-change flag or warning log.
+**Justification:**  
+- [exact rule sentence] "Registration failures should be observable (structured logging / telemetry), not silent — see BUD Section 10, 'Limited observability' as a known platform risk." (docs/business_rules.md, Rule 14)
 
-   - Justification:
-     - Edge case category: boundary values / input normalization.
-     - This requirement ensures that GOAR-15’s behaviour aligns with its own intent and tests (e.g., scenarios that treat case/whitespace-only differences as unchanged). It prevents spurious "model changed" events for purely presentational differences, which would undermine the value of the review flag.
+The diff and tests already implement and assert this behavior (Scenario "The model-number-change warning log carries discrete structured fields"), so it is adopted as explicit AC.
 
-2. **Model-Family Definition Must Be Stable and Documented Before Expanding Scope**
+### 5.2 No partial side effects on rejected re-registration
 
-   - Requirement statement:
-     - For GOAR-15, the `_model_family()` helper may use a crude `strip().upper().split("-")` heuristic, but any decision to broaden or harden rejection behaviour based on model families (beyond the scenarios explicitly covered in `tests/features/GOAR-15.feature`) must be accompanied by a documented, stable definition of "model family" (e.g., a catalog lookup or configuration file) so that QA can validate expected mappings.
+**Requirement statement:**  
+When a re-registration is rejected due to a model-family mismatch, the printer's `cloud_id`, `printer_email_id`, and `xmpp_node` must remain unchanged, and the only new history entry added must be the review-flag entry; no Cloud identity creation, capability capture, XMPP assignment, or welcome page print may be recorded for the rejected attempt.
 
-   - Justification:
-     - Edge case category: boundary values / classification consistency.
-     - While not mandated by a specific business rule sentence, this requirement constrains future use of `_model_family()` to avoid arbitrary or inconsistent rejections. The existing scenarios already note that the heuristic is crude and that a real implementation would use a proper catalog.
+**Justification:**  
+- [exact rule sentence] "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained." (docs/business_rules.md, Rule 2)
 
-3. **No Partial Side Effects on Rejected Re-registrations**
+Scenarios "A different-family model number change is rejected and the stored record is left unchanged" and "A rejected re-registration produces zero partial side effects" already encode this requirement and confirm the implementation.
 
-   - Requirement statement:
-     - When a re-registration is rejected due to a model-family mismatch, the system must not create or alter any Cloud ID, printer email ID, XMPP node, capabilities record, or serial index for that printer; the only allowed state change is a history entry flagging the attempted model-number change for review.
+### 5.3 Cloud ID must not change on rejected re-registration
 
-   - Justification:
-     - Exact rule sentence: "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained." (Rule 2)
-     - This requirement makes explicit that GOAR-15’s rejection path is a pre-Welcome-Page failure and must honour the rollback semantics by avoiding partial side effects.
+**Requirement statement:**  
+For re-registration attempts that are rejected as model-family mismatches, no new Cloud ID must be generated, and the existing `cloud_id` must remain in place for the printer.
 
-4. **Preservation of Ownership and Claim Status on Legitimate Re-registrations**
+**Justification:**  
+- [exact rule sentence] "Re-registering a printer (same serial number) **always generates a new Cloud ID** — the old identity is not reused." (docs/business_rules.md, Rule 3)
+- [exact rule sentence] "Cloud ID: system-generated, unique, regenerated on every re-registration." (docs/business_rules.md, Rule 6)
 
-   - Requirement statement:
-     - For printers with status `CLAIMED`, legitimate re-registrations (unchanged or same-family `model_number`) must preserve `owner_user_id` and `status` as `CLAIMED`. No re-registration path may silently clear, reassign, or downgrade ownership.
+Combined with Rule 2’s rollback constraint, these rules imply that failed re-registrations must not consume Cloud IDs; the diff and tests validate that rejected re-registrations leave `cloud_id` unchanged.
 
-   - Justification:
-     - Exact rule sentence: "Registration/re-registration logic must never silently overwrite or wipe out an existing owner's claim on a printer." (Rule 11)
-     - GOAR-15’s scenarios around claimed-printer re-registration embody this rule; this requirement formalizes it as acceptance criteria.
+### 5.4 Claimed printers preserve ownership on accepted re-registration
 
-5. **Structured Warning Logs for Model-Number Changes**
+**Requirement statement:**  
+When a claimed printer is re-registered with either an unchanged `model_number` or a same-family `model_number` change, the re-registration must succeed without altering `owner_user_id` or changing status away from `CLAIMED`.
 
-   - Requirement statement:
-     - Each model-number change on re-registration must emit at least one warning log record that:
-       - Has a stable message key (e.g., includes "GOAR-15: model_number changed on re-registration"), and
-       - Carries discrete attributes `serial_number`, `old_model`, and `new_model` (attached via the logging `extra` mechanism) so that downstream systems can query and aggregate these events.
+**Justification:**  
+- [exact rule sentence] "Registration/re-registration logic must never silently overwrite or wipe out an existing owner's claim on a printer." (docs/business_rules.md, Rule 11)
 
-   - Justification:
-     - Exact rule sentence: "Registration failures should be observable (structured logging / telemetry), not silent — see BUD Section 10, \"Limited observability\" as a known platform risk." (Rule 14)
-     - While a model-number change is not itself a failure, it is a suspicious event that must be observable. Structured logging with discrete fields enables telemetry and monitoring in line with Rule 14.
+Scenarios "Re-registering a claimed printer with an unchanged model number preserves ownership" and "Re-registering a claimed printer with a same-family model change still flags it for review" encode this requirement.
 
-6. **Cloud ID, Email, and XMPP Behaviour on Successful GOAR-15 Re-registrations**
+### 5.5 Model-family determination must be case- and whitespace-insensitive
 
-   - Requirement statement:
-     - For any successful re-registration (unchanged or same-family `model_number`):
-       - A new Cloud ID must be generated and differ from the previous Cloud ID.
-       - A new printer email ID must be generated and differ from the previous printer email ID.
-       - An XMPP node must be assigned if one was not already present.
+**Requirement statement:**  
+Model-family comparison for re-registration must treat variations in case and leading/trailing whitespace as non-material. A `model_number` differing only by case or surrounding spaces must not be treated as a model-family mismatch.
 
-   - Justification:
-     - Exact rule sentences:
-       - "Re-registering a printer (same serial number) **always generates a new Cloud ID** — the old identity is not reused." (Rule 3)
-       - "Cloud ID: system-generated, unique, regenerated on every re-registration." (Rule 6)
-       - "Printer Email ID: must be globally unique; used for Email-to-Print." (Rule 7)
-       - "A printer is assigned an XMPP node as part of registration, enabling persistent cloud connectivity." (Rule 5)
-     - GOAR-15 must not weaken these behaviours; this requirement ties the new validation path to the existing identity and connectivity rules.
+**Justification:**  
+- [edge case category: boundary] Variations in case and whitespace represent boundary/format edge cases for model classification; misclassifying them as different families would create false rejection of legitimate re-registrations.
+
+The `_model_family()` helper already normalizes `model_number` with `.strip().upper()`, and the scenarios "Re-registering with a differently-cased same-family model number still succeeds" and "Re-registering with only whitespace/case differences in model number is treated as unchanged" validate this requirement.
+
+### 5.6 Authorization enforcement for register, claim, and lookup
+
+**Requirement statement:**  
+All registration, claim, and printer lookup endpoints must enforce Authorization headers, rejecting requests that either omit the `Authorization` header or present an invalid bearer token.
+
+**Justification:**  
+- [edge case category: auth] Missing or invalid tokens are standard authorization failure edge cases; ensuring consistent rejection across endpoints is necessary for secure registration and ownership management.
+
+Scenarios "Registering a printer with no Authorization header is rejected", "Registering a printer with an invalid bearer token is rejected", "Claiming a printer with no Authorization header is rejected", "Claiming a printer with an invalid bearer token is rejected", "Looking up a printer with no Authorization header is rejected", and "Looking up a printer with an invalid bearer token is rejected" already require this behavior and exercise it via HTTP.
 
 ## 6. Open Questions
 
-The following questions cannot be resolved purely from the Jira ticket, diff, and business rules. Downstream agents (scenario designers, test generators, and scorers) must treat these as out of scope until clarified and must not score behaviours that depend on them.
+### 6.1 Firmware version validation for spoofing
 
-1. **Firmware-Version Spoofing Protection**
+**The question:**  
+Should re-registration also flag or gate changes in `firmware_version` as part of spoofing detection (e.g., a radically different firmware version that may indicate a different physical device), or is the model-family check sufficient?
 
-   - Question:
-     - Should changes to `firmware_version` on re-registration trigger logging, validation, or rejection similar to `model_number` changes, particularly when the new firmware version appears inconsistent with the model family or previous version?
+**Why it cannot be resolved:**  
+- The Jira description explicitly notes that `firmware_version` is overwritten without validation on re-registration, but the ACs only mention `model_number`.  
+- The diff and tests implement only model-number-based detection and do not mention firmware-based rules.
 
-   - Why it cannot be resolved:
-     - The Jira description mentions that both `model_number` and `firmware_version` are updated with no validation, but the acceptance criteria and diff focus exclusively on `model_number`. `docs/business_rules.md` does not mention firmware version at all.
+**Downstream exclusion:**  
+- Test design and scoring must not treat firmware-change validation as required behavior for GOAR-15. Any tests around firmware spoofing should be marked exploratory or out of scope.
 
-   - Downstream exclusions:
-     - Do not design, generate, or score tests that assume specific validation or logging behaviour for `firmware_version` changes beyond existing generic registration behaviour.
+### 6.2 Explicit confirmation vs outright rejection for materially different model families
 
-2. **Explicit Confirmation vs. Hard Rejection for Different Model Families**
+**The question:**  
+The AC states that materially different model-family re-registrations are "rejected or require explicit confirmation." Is outright rejection the intended behavior, or should there be a confirmation mechanism (e.g., user/admin override) in a future iteration?
 
-   - Question:
-     - The acceptance criteria say that re-registration with a materially different model family is "rejected or requires explicit confirmation." Is the intended long-term behaviour a hard rejection (as implemented) or an interactive confirmation flow (e.g., a separate endpoint, UI, or token-based override), and if the latter, what are its semantics?
+**Why it cannot be resolved:**  
+- The current implementation and tests only cover outright rejection; no confirmation flow exists.  
+- The AC uses "or", leaving room for interpretation.
 
-   - Why it cannot be resolved:
-     - The current implementation only provides hard rejection via `RegistrationError`; there is no confirmation mechanism described in the ticket or present in the codebase. The business rules do not discuss confirmation flows.
+**Downstream exclusion:**  
+- Downstream agents must not assume any confirmation mechanism exists. Scoring must only evaluate the rejection behavior that is present in code and tests.
 
-   - Downstream exclusions:
-     - Do not design or score tests that assume the existence of an explicit confirmation mechanism, nor tests that treat hard rejection as definitively the only allowed behaviour for different-family re-registrations.
+### 6.3 Model-family catalog accuracy and future changes
 
-3. **Model-Family Catalog and Long-Term Definition**
+**The question:**  
+Is the current `_model_family()` heuristic (`strip().upper().split("-")` and dropping the last component) considered acceptable long-term, or is a formal model catalog planned that could alter family boundaries and, therefore, rejection behavior?
 
-   - Question:
-     - What is the authoritative definition of a "model family" for production use (e.g., HP’s internal catalog, a configuration file, or a naming convention), and how should `_model_family()` be aligned with it?
+**Why it cannot be resolved:**  
+- The helper’s docstring admits it is "Intentionally simple for now; a real implementation would use a proper model catalog/lookup."  
+- No business rule defines authoritative model-family mapping.
 
-   - Why it cannot be resolved:
-     - The docstring for `_model_family()` explicitly describes it as "crude" and notes that "a real implementation would use a proper model catalog/lookup." No such catalog or mapping is present in this repository, nor described in the business rules.
+**Downstream exclusion:**  
+- Until a formal catalog is introduced, agents must score only the heuristic behavior currently implemented; they cannot assume more accurate classification or different family definitions.
 
-   - Downstream exclusions:
-     - Do not design or score tests that rely on a broader or different interpretation of model families than the specific examples covered in `tests/features/GOAR-15.feature`. Treat `_model_family()`’s current heuristic as the only authoritative mapping for GOAR-15.
+### 6.4 Interaction between deregistration and GOAR-15 safeguards
 
-4. **Claimed-Printers: Stricter Behaviour on Model-Number Changes**
+**The question:**  
+After deregistration and subsequent re-registration of the same serial number, should GOAR-15’s model-family detection still apply in exactly the same way (i.e., reject different-family registrations), or is there any intended difference when the prior registration has been fully removed per Rule 12?
 
-   - Question:
-     - For printers with status `CLAIMED`, should any `model_number` change (even within the same family) be rejected or blocked pending explicit confirmation, given the higher sensitivity around ownership and billing, or is logging and preserving ownership sufficient?
+**Why it cannot be resolved:**  
+- Business Rule 13 requires a new Cloud ID after deregistration, but does not discuss model-family checks.  
+- GOAR-15 tests do not exercise the deregister-then-reregister path.
 
-   - Why it cannot be resolved:
-     - Business Rule 11 prohibits silently wiping out a claim but does not specify whether claimed printers should be subject to stricter validation than unclaimed ones. The current implementation treats claimed and unclaimed printers identically in the GOAR-15 logic, and the ticket does not mention special handling for claimed printers beyond "legit re-registrations ... continue to work as before."
+**Downstream exclusion:**  
+- Tests and scoring must not infer any special handling for post-deregistration re-registration beyond existing business rules; GOAR-15’s behavior for that path remains unspecified.
 
-   - Downstream exclusions:
-     - Do not design or score tests that assume stricter rejection or confirmation logic for claimed printers beyond what is explicitly implemented (i.e., same-family changes logged and accepted, different-family changes rejected).
+### 6.5 Review workflow for flagged model-number changes
 
-5. **Downstream Review and Alerting Pipeline for Logged Events**
+**The question:**  
+What is the expected operational workflow for "flagged for review" model-number changes (e.g., alerting, dashboards, manual investigation queues), and are there any SLAs for handling such flags?
 
-   - Question:
-     - Which downstream system (e.g., logging backend, SIEM, ops dashboard) is expected to consume and act on the GOAR-15 warning logs, and are there specific formatting or tagging requirements beyond `serial_number`, `old_model`, and `new_model`?
+**Why it cannot be resolved:**  
+- Business Rule 14 mandates observability via logging but does not define operational processes or SLAs.  
+- The Jira ticket mentions "flagged/logged as a notable event for review" but does not specify downstream systems.
 
-   - Why it cannot be resolved:
-     - Business Rule 14 requires observability via structured logging/telemetry but says nothing about specific consumers or formats. The repository contains no configuration or documentation for log ingestion or alerting.
-
-   - Downstream exclusions:
-     - Do not design or score tests that depend on external log-consumer behaviour (alerts, tickets, dashboards). Limit validation to the presence and structure of log records within the application’s own logging framework.
+**Downstream exclusion:**  
+- Agents must limit scoring to the presence and content of logs and history; they must not attempt to validate or assume any operational review processes.
