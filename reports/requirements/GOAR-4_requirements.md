@@ -2,54 +2,44 @@
 
 ## 1. Summary
 
-Failed registrations that abort at the Welcome Page print step were leaving behind orphaned capability records (and potentially other partial state) in the store. Specifically, when registration fails with `simulate_welcome_page_failure=True`, the printer record was removed but the associated capability record for that `printer_id` was not, violating the rollback business rule that prohibits retention of partial registration data. The fix ensures that `_rollback_registration()` removes all partial state created during registration for that printer: the printer record, its capabilities, and the serial index, so that no orphaned capability records remain and the serial number can be registered again from scratch. Successful registrations are unaffected.
+This ticket addresses incomplete rollback behaviour during printer registration when the Welcome/Info Page fails to print. Currently, registration rollback removes the printer record and serial index but leaves behind an orphaned capability record with no corresponding printer, violating the business rule that no partial registration data may be retained. The fix ensures that when Welcome Page printing fails, all partial state for that registration attempt is removed — printer record, capability record, and serial index — so the serial number can be safely registered again and no orphaned capability data remains.
 
 ## 2. Affected Components
 
 - `app/registration.py`
-  - Function `register_printer(...)`
-    - Uses the `simulate_welcome_page_failure` flag to trigger rollback via `_rollback_registration(printer)` when `generate_and_print_welcome_page` raises `WelcomePagePrintError`.
   - Function `_rollback_registration(printer: Printer) -> None`
-    - Rollback logic updated to delete capabilities:
-      - `store.delete_printer(printer.printer_id)`
-      - `store.remove_serial_index(printer.serial_number)`
-      - `store.delete_capabilities(printer.printer_id)` (newly added cleanup ensuring no orphaned capability record remains).
+  - Function `register_printer(...) -> Printer` (behavioural context for rollback, including `simulate_welcome_page_failure` flow)
 
-- Store interactions (indirect, via `app.store`):
-  - `store.delete_printer(printer.printer_id)` — printer record removal.
-  - `store.remove_serial_index(printer.serial_number)` — serial index removal.
-  - `store.delete_capabilities(printer.printer_id)` — capability record removal for the failed registration.
+- `app/store.py` (implied by calls from `registration.py`; not modified by this diff but behaviourally involved)
+  - `store.delete_printer(printer_id)`
+  - `store.remove_serial_index(serial_number)`
+  - `store.delete_capabilities(printer_id)`
 
 ## 3. Applicable Business Rules
 
-**Rule 1 — Registration success condition**
+### Rule 1 — Registration success depends on Welcome Page
 
-- Exact sentence: "Registration is successful **only if** the Welcome/Info Page prints."
-- Relation to this ticket: This rule defines the boundary between success and failure for registration. GOAR-4 concerns the failure path when the Welcome Page does not print (e.g., via `simulate_welcome_page_failure=True`), so this rule establishes that such a scenario must be treated as a failed registration, triggering rollback rather than partial success.
+- **Exact sentence:** "Registration is successful **only if** the Welcome/Info Page prints."  
+- **Relation to this ticket:** This rule defines the failure condition under which rollback must occur. GOAR-4 specifically targets the case where Welcome Page printing fails (simulated via `simulate_welcome_page_failure=True`), and ensures that such failures are treated as unsuccessful registrations requiring complete rollback.
 
-**Rule 2 — Rollback on failure / no partial data retention**
+### Rule 2 — No partial data on failed registration / rollback completeness
 
-- Exact sentence: "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained."
-- Relation to this ticket: This is the core rule GOAR-4 enforces. The Jira description explicitly references this rule and describes a violation: capability records remaining after a failed registration. The fix to `_rollback_registration()` ensures that printer record, capability record, and serial index are all removed when the Welcome Page fails to print, aligning implementation with this rule.
+- **Exact sentence:** "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained."  
+- **Relation to this ticket:** This is the primary rule GOAR-4 enforces. The ticket describes a failure mode where capability records remain after a failed registration, creating orphans. The fix adds `store.delete_capabilities(printer.printer_id)` to `_rollback_registration`, so that printer record, capability record, and serial index are all removed when Welcome Page printing fails, satisfying the "no partial data" requirement.
 
-**Rule 4 — Capabilities captured at registration**
+### Rule 12 — Deregistration and GDPR compliance (contextual)
 
-- Exact sentence: "Printer capabilities are captured once at registration time so downstream services never need to re-query the device."
-- Relation to this ticket: This rule explains why capability records exist and why orphaned capability records are problematic. If a capability record exists without a corresponding printer record, downstream services might incorrectly treat the printer as present or usable based solely on capabilities, which contradicts the intended model. GOAR-4 ensures capability records are cleaned up when registration fails, keeping capabilities aligned with actual registered printers.
+- **Exact sentence:** "Deregistration must remove all cloud associations and printer data (GDPR compliance)."  
+- **Relation to this ticket:** While this rule is about deregistration rather than registration rollback, it reinforces the GDPR compliance concern cited in GOAR-4’s impact statement. Orphaned capability records constitute retained printer data without a valid registration context, which conflicts with the spirit of rule 12’s requirement to remove printer data when it should no longer be retained.
 
-**Rule 12 — Deregistration and GDPR compliance**
+### Rule 14 — Observability of registration failures (contextual)
 
-- Exact sentence: "Deregistration must remove all cloud associations and printer data (GDPR compliance)."
-- Relation to this ticket: While GOAR-4 focuses on failed registration rollback rather than explicit deregistration, the Jira ticket notes "Impact: High -- orphaned records are a GDPR compliance concern." This mirrors Rule 12's rationale that incomplete data removal poses GDPR risks. GOAR-4's fix reduces such risk on the failure path by ensuring no partial registration data (including capabilities) remains for an unregistered printer, consistent with the same compliance intent.
-
-**Rule 14 — Observability of registration failures**
-
-- Exact sentence: "Registration failures should be observable (structured logging / telemetry), not silent — see BUD Section 10, \"Limited observability\" as a known platform risk."
-- Relation to this ticket: Although GOAR-4’s diff focuses on rollback cleanup rather than logging, the failure path in `register_printer` raises `RegistrationError` after rollback when the Welcome Page fails. This contributes to making registration failures observable to callers and systems, in line with Rule 14. No new logging is added by GOAR-4, but the error propagation and rollback behavior remain consistent with this rule.
+- **Exact sentence:** "Registration failures should be observable (structured logging / telemetry), not silent — see BUD Section 10, \"Limited observability\" as a known platform risk."  
+- **Relation to this ticket:** GOAR-4’s primary focus is rollback completeness, not logging, but the existence of orphaned capability records resulted from failures that were not fully cleaned up. Ensuring rollback is complete supports clearer operational observability (no confusing orphaned data). The current diff and `registration.py` implementation log registration start and completion, and exceptions like `WelcomePagePrintError` are raised; however, this ticket does not explicitly modify logging.
 
 ## 4. Original Acceptance Criteria
 
-Copied from `jira_context/GOAR-4_live.md`:
+Copied directly from `jira_context/GOAR-4_live.md`:
 
 - "When Welcome Page printing fails, no printer record remains."
 - "When Welcome Page printing fails, no capability record remains for that printer_id."
@@ -58,75 +48,49 @@ Copied from `jira_context/GOAR-4_live.md`:
 
 ## 5. Adopted Additional Requirements
 
-### 5.1 Requirement: Capability cleanup must occur for every rollback invocation, not only when capabilities were created in the current attempt
+All additions below are grounded either in explicit business rule sentences or recognised edge case categories (boundary value, auth failures, ownership conflicts, rollback behaviour).
 
-- Requirement statement:
-  - When `_rollback_registration(printer)` is invoked due to failure before the Welcome Page prints, it must call `store.delete_capabilities(printer.printer_id)` regardless of whether capabilities were created during the current registration attempt or were already on record, ensuring that no capabilities remain associated with a printer that failed to complete registration.
+### 5.1 Rollback must be invoked for *any* failure before Welcome Page prints, not only simulated failures
 
-- Justification:
-  - Exact rule sentence: "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained."
-  - Explanation: Rule 2 explicitly lists "capability record" as data that must not be retained when registration fails before the Welcome Page prints. The existing implementation may sometimes skip capability capture if `store.get_capabilities(printer_id)` already returns a record, which means failed registrations could leave a pre-existing capability record associated with a printer that did not successfully register in this attempt. Applying `store.delete_capabilities(printer.printer_id)` unconditionally in rollback ensures that any capability record tied to the printer is removed, satisfying the "no partial data" requirement even in cases where capabilities predated the failed attempt. Edge case category: boundary value / repeated-operation check (handling both first-time and re-registration attempts identically on failure).
+- **Requirement statement:** For any registration attempt where a failure occurs before the Welcome/Info Page prints — regardless of whether it is triggered via `simulate_welcome_page_failure` or a real `WelcomePagePrintError` — `_rollback_registration` must be invoked, and the rollback must remove the printer record, capability record, and serial index for the affected printer.
+- **Justification:** [exact rule sentence] Business rules `docs/business_rules.md`: "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained." This requirement generalises the AC from the specific simulated failure path to any failure path, which is demanded by the "any step fails" scope of Rule 2.
 
-### 5.2 Requirement: Rollback must occur for all failures before the Welcome Page prints, not only simulated failures
+### 5.2 Rollback must remove capabilities even if they were pre-existing for that printer_id
 
-- Requirement statement:
-  - Any failure that occurs before the Welcome Page prints — whether triggered by `simulate_welcome_page_failure=True` or by a real `WelcomePagePrintError` or other exceptions in the Welcome Page generation/printing step — must invoke `_rollback_registration(printer)` and result in the removal of printer record, capability record, and serial index, leaving no partial registration data behind.
+- **Requirement statement:** If a registration or re-registration attempt for a given `printer_id` fails before the Welcome Page prints, `_rollback_registration` must remove any capability record associated with that `printer_id`, even if that capability record was created during a prior successful registration and not newly created in the current attempt.
+- **Justification:** [edge case category: rollback behaviour] The original AC is written in terms of "no capability record remains for that printer_id" but does not explicitly address the case where capabilities already existed prior to the failed attempt (e.g., re-registration with `store.get_capabilities(printer_id)` returning a record). Rule 2’s "no partial data ... may be retained" sentence covers capabilities generally, and rollback must ensure that after a failed registration attempt, there is no capability record tied to a `printer_id` that no longer has a corresponding printer record.
 
-- Justification:
-  - Exact rule sentence: "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained."
-  - Explanation: The Jira ticket describes steps using `simulate_welcome_page_failure=True` as a reproducible scenario, but the business rule applies to any failure before the Welcome Page prints, not just simulation flags. Ensuring rollback for real-world failures (e.g., printer offline, page generation errors, transport failures) is necessary to uphold Rule 2 across all paths, not solely the artificial test path. Edge case category: error state / rollback behavior.
+### 5.3 Serial index removal must ensure no stale serial mapping remains
 
-### 5.3 Requirement: Serial index must be removed for both initial registration and re-registration failures
+- **Requirement statement:** On rollback, `store.remove_serial_index(printer.serial_number)` must guarantee that no index or mapping remains which would cause `store.get_printer_by_serial(serial_number)` to return a stale `printer_id` after the failed registration. Subsequent successful registrations using the same serial number must behave as a fresh registration, with no linkage to any prior failed attempt.
+- **Justification:** [exact rule sentence] Business rules `docs/business_rules.md`: "no partial data (printer record, capability record, serial index, etc.) may be retained." The explicit mention of "serial index" requires that any indexing structure mapping serial numbers to printers be cleared such that there is no possibility of stale mappings persisting after rollback.
 
-- Requirement statement:
-  - When registration or re-registration fails before the Welcome Page prints, `_rollback_registration(printer)` must call `store.remove_serial_index(printer.serial_number)` so that the serial number can be used to register again from scratch, regardless of whether the failing attempt was an initial registration or a re-registration.
+### 5.4 Rollback behaviour must be identical for first-time registration and re-registration failures
 
-- Justification:
-  - Exact rule sentence: "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained." (Rule 2)
-  - Jira acceptance criterion: "When Welcome Page printing fails, the serial number is free to be registered again from scratch."
-  - Explanation: The existing implementation already calls `store.remove_serial_index(printer.serial_number)` within `_rollback_registration`. This requirement makes explicit that removal must occur for any failed attempt, including re-registration, so that the serial number is not blocked by stale index entries. This aligns with Rule 2’s explicit mention of "serial index" as data that must be rolled back and mirrors the Jira AC about serial number reuse. Edge case category: boundary value / repeated-operation check.
+- **Requirement statement:** When a re-registration attempt (for a serial number that already has an existing printer record) fails before the Welcome Page prints, rollback must remove the printer record, capability record, and serial index for that `printer_id` in the same way as for a first-time registration failure, leaving no registration state behind for that serial number.
+- **Justification:** [exact rule sentence] Business rules `docs/business_rules.md`: "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained." The rule does not distinguish between first-time registration and re-registration. Ensuring identical rollback behaviour covers this edge case and prevents orphaned data when re-registration fails.
 
-### 5.4 Requirement: Rollback must not alter claimed printers outside the failure path defined by Rule 2
+### 5.5 Rollback must be idempotent for a given failed registration attempt
 
-- Requirement statement:
-  - `_rollback_registration(printer)` must only be invoked for registration attempts that have not yet reached a successful Welcome Page print. It must not be used as a general cleanup mechanism for already claimed printers or other lifecycle events; deletion of printer, capabilities, and serial index through rollback must be limited to failure-before-Welcome-Page scenarios.
-
-- Justification:
-  - Exact rule sentence: "Registration/re-registration logic must never silently overwrite or wipe out an existing owner's claim on a printer." (Rule 11)
-  - Explanation: While GOAR-4 is focused on failed registrations, the rollback function deletes core printer data, including capabilities and serial index. Misuse of rollback outside the failure-before-Welcome-Page context (e.g., calling `_rollback_registration` for a claimed printer instead of using proper deregistration) could silently remove an owner’s claim, conflicting with Rule 11. This requirement constrains rollback usage to the context described by Rule 2, protecting claimed printers and ensuring that ownership is not inadvertently wiped out. Edge case category: ownership.
+- **Requirement statement:** Invoking `_rollback_registration(printer)` multiple times for the same failed registration attempt must not cause errors or leave residual data; repeated calls must either perform no-op deletions on already-removed records or consistently result in a state where no printer record, capability record, or serial index exists for that printer.
+- **Justification:** [edge case category: rollback behaviour] Rule 2 mandates complete rollback and no partial data retention. In distributed or retried error-handling scenarios, rollback may be invoked more than once; ensuring idempotent behaviour prevents inconsistent states where some elements (e.g., serial index) are removed but others (e.g., capabilities) remain because of partial rollback on repeated invocations.
 
 ## 6. Open Questions
 
-### 6.1 Orphaned printer_email_id and XMPP node on failed registrations
+### 6.1 Behaviour when capabilities existed from a prior successful registration
 
-- The question:
-  - On a registration failure before the Welcome Page prints, should `_rollback_registration(printer)` also remove or invalidate any associated `printer_email_id` index entries and XMPP node assignments created earlier in the registration flow, to ensure no partial cloud identity remains?
+- **The question:** If a re-registration attempt fails before the Welcome Page prints, and capabilities for that `printer_id` already existed from a prior successful registration, should rollback delete those pre-existing capabilities (as now implemented with `store.delete_capabilities(printer.printer_id)`), or should they be preserved as part of the last known-good registration?
+- **Why it cannot be resolved from available inputs:** Rule 2 states that "no partial data ... may be retained" when a step fails before the Welcome Page prints, but it does not explicitly distinguish data created during the current failed attempt from data created during a prior successful registration. The Jira ticket text for GOAR-4 describes orphaned capabilities arising from failed registrations where the printer record is removed, implying capabilities were created during that attempt. It does not explicitly discuss the case where capabilities predate the failure. The diff and current implementation always delete capabilities on rollback, but it is unclear if this is the intended behaviour in the re-registration-with-existing-capabilities scenario.
+- **Downstream exclusion:** Until clarified, downstream test design and scoring must avoid treating deletion of pre-existing capabilities on re-registration failure as either required or forbidden. Tests should focus on the simpler, clearly in-scope case where capabilities are created during the failed attempt and must be removed to avoid orphans.
 
-- Why it cannot be resolved from available inputs:
-  - Business rules explicitly mention that "no partial data (printer record, capability record, serial index, etc.) may be retained" (Rule 2), but do not specify whether email indices or XMPP node assignments count as "partial data" that must be removed on rollback. The current implementation’s `_rollback_registration` removes only the printer record, serial index, and capabilities, and does not interact with email indexing or XMPP node deallocation. The Jira ticket for GOAR-4 focuses specifically on orphaned capability records and serial reuse, not on email or XMPP cleanup.
+### 6.2 Logging and observability requirements for rollback
 
-- What downstream agents must exclude from scoring:
-  - Any tests or scoring that assume email indices and XMPP nodes are removed on rollback must be excluded until product owners clarify whether these elements are in scope for Rule 2’s "no partial data" requirement.
+- **The question:** Should `_rollback_registration` explicitly log structured information (e.g., printer_id, serial_number, reason for rollback) to meet rule 14’s observability expectations, or is the existing logging around registration start, completion, and exception handling considered sufficient for this ticket?
+- **Why it cannot be resolved from available inputs:** Rule 14 requires registration failures to be observable via structured logging/telemetry, but neither the GOAR-4 ticket nor the provided diff mention logging changes. The current implementation logs some registration events, but there is no explicit requirement in GOAR-4 about logging granularity for rollback. Without explicit Jira text or business rule guidance targeted at this ticket, it is ambiguous whether additional logging should be part of the acceptance criteria.
+- **Downstream exclusion:** Downstream agents must not score or fail this ticket based on the presence or absence of additional rollback-specific logging. Tests should verify functional rollback behaviour (no printer, capabilities, or serial index remaining), not logging details, unless another ticket explicitly introduces logging ACs.
 
-### 6.2 Behavior when capabilities pre-exist before a failed re-registration
+### 6.3 Interaction with deregistration (Rule 12) when registration fails
 
-- The question:
-  - If a printer already has a capability record from a past successful registration, and a subsequent re-registration attempt fails before the Welcome Page prints, should `_rollback_registration(printer)` delete the existing capabilities, or should they remain because the printer was previously successfully registered?
-
-- Why it cannot be resolved from available inputs:
-  - Rule 2 mandates that "no partial data (printer record, capability record, serial index, etc.) may be retained" for the failing registration attempt. However, it does not clearly distinguish between data created in the current attempt versus data created during earlier successful registrations. The current implementation unconditionally calls `store.delete_capabilities(printer.printer_id)`, which would remove pre-existing capabilities even if they originated from a prior success. The Jira ticket’s description targets orphaned capability records from failed registrations but does not explicitly address the re-registration-with-existing-data scenario.
-
-- What downstream agents must exclude from scoring:
-  - Tests and scoring that rely on a specific interpretation (e.g., always deleting historical capabilities on any failed re-registration vs. preserving them) must be excluded. Downstream agents should focus only on the clear case: no capabilities remain for a printer that has just failed its registration and has no prior successfully registered state represented in the store.
-
-### 6.3 GDPR expectations for logging and audit trail on rollback
-
-- The question:
-  - Are there explicit GDPR or compliance requirements for logging rollback operations (e.g., structured audit logs for deletion of printer records, capabilities, and serial indices), beyond the logical cleanup enforced by GOAR-4?
-
-- Why it cannot be resolved from available inputs:
-  - Rule 12 ties deregistration to GDPR compliance, and the Jira ticket notes that orphaned records are a "GDPR compliance concern," but neither the ticket nor `docs/business_rules.md` specify the required level of logging or auditing for rollback actions. The current implementation logs registration events through `printer.log(...)` and raises `RegistrationError`, but no explicit compliance logging for deletions is described.
-
-- What downstream agents must exclude from scoring:
-  - Any tests or scoring that assume specific audit logging structures or compliance evidence (e.g., log schemas, retention policies) for rollback actions must be excluded until governance or compliance teams specify these requirements.
-
+- **The question:** In scenarios where a printer was previously deregistered (per Rule 12) and then a new registration attempt fails before the Welcome Page prints, is there any additional GDPR-specific cleanup required beyond removing printer record, capabilities, and serial index for the failed attempt?
+- **Why it cannot be resolved from available inputs:** Rule 12 describes full data removal on deregistration, and Rule 2 describes full rollback on failed registration. The combination suggests that no printer data should remain in either case, but the Jira ticket does not describe this combined scenario, and the code/diff do not show any special-case handling for "previously deregistered" printers during rollback. As a result, it is unclear whether extra requirements (e.g., auditing or notification) apply when both mechanisms are involved.
+- **Downstream exclusion:** Downstream agents must avoid adding test cases or scoring criteria that presume special GDPR behaviours for "failed registration after prior deregistration" beyond the generic rollback behaviour already covered by Rule 2.
