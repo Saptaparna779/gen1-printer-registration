@@ -1,6 +1,6 @@
 # Test Cases — GOAR-4
 
-## TC-GOAR-4-01: Successful registration leaves printer record present
+## TC-GOAR-4-01: Successful registration persists printer record
 
 Scenario: [HAPPY PATH] Successful registration with Welcome Page printing completes and leaves a printer record present.
 
@@ -10,29 +10,38 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions: 
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-001".
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-001".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-001", "model_number": "HP-LJ-2055", "firmware_version": "1.0.0", "simulate_welcome_page_failure": false}
+  Body: {
+    "serial_number": "SN-GOAR4-001",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": false
+  }
 
 Expected response:
 
   Status: 200
 
-  Body contains: 
-  - "printer_id": non-empty string
-  - "cloud_id": string starting with "CID-"
-  - "status": "REGISTERED"
+  Body contains: {
+    "printer_id": <non-empty string>,
+    "cloud_id": value matching regex "^CID-[A-F0-9]{12}$",
+    "printer_email_id": value matching regex "^[a-z0-9]{10}@print.hpeprint.com$",
+    "claim_code": value matching regex "^[A-Z0-9]{8}$",
+    "status": "REGISTERED"
+  }
 
-Notes: After the POST, Agent 4 should call GET /printers/{printer_id} with the returned printer_id and assert 200 plus matching printer_id and serial_number "SN-GOAR4-001" to confirm the printer record remains.
+Notes: After the POST succeeds, Agent 4 should perform a follow-up GET /printers/{printer_id} call (using the same auth state) and assert that the response is 200 and includes the same "printer_id" and "serial_number": "SN-GOAR4-001", confirming that the printer record persists after successful registration.
 
 ---
 
-## TC-GOAR-4-02: Failed registration removes printer record via rollback
+## TC-GOAR-4-02: Failed registration removes printer record
 
 Scenario: [ROLLBACK] Registration where Welcome Page printing fails removes the printer record so no printer remains for that printer_id.
 
@@ -42,27 +51,34 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions: 
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-002".
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-002".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-002", "model_number": "HP-LJ-2055", "firmware_version": "1.0.0", "simulate_welcome_page_failure": true}
+  Body: {
+    "serial_number": "SN-GOAR4-002",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.1",
+    "simulate_welcome_page_failure": true
+  }
 
 Expected response:
 
   Status: 422
 
-  Body contains: 
-  - "detail": string containing "Welcome page failed to print"
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-002"
+  }
 
-Notes: This is a rollback test. Before action, no printer exists for this serial. Action is the failing POST. After action, Agent 4 must call GET /printers/{printer_id_attempted} using the printer_id captured from logs or a prior successful attempt is not available; instead, Agent 4 should verify via store-level helpers (reset_store fixture context) that store.get_printer_by_serial("SN-GOAR4-002") is None. Since the API never returns the temporary printer_id on failure, state verification must be done indirectly by asserting GET /printers/{some_random_id} returns 404 for unrelated IDs and that no registration history for SN-GOAR4-002 exists if accessible.
+Notes: Before invoking the POST, Agent 4 should confirm via GET /printers/{printer_id} that no record exists for this serial (expect 404 when using any placeholder id). After the 422 response, Agent 4 must assert that GET /printers/{printer_id} using the printer_id (if any) mentioned in logs is not possible via the API (expect 404 if a concrete printer_id was created then rolled back). This confirms that no printer record remains after rollback.
 
 ---
 
-## TC-GOAR-4-03: Successful registration leaves capability record present
+## TC-GOAR-4-03: Successful registration leaves capabilities present
 
 Scenario: [HAPPY PATH] Successful registration with Welcome Page printing completes and leaves a capability record associated with the printer_id.
 
@@ -72,28 +88,35 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-003".
+Preconditions: No printer or capability record exists yet for serial_number "SN-GOAR4-003".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-003", "model_number": "HP-C-MFP-9999", "firmware_version": "1.0.0", "simulate_welcome_page_failure": false}
+  Body: {
+    "serial_number": "SN-GOAR4-003",
+    "model_number": "HP-C-MFP-9999",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": false
+  }
 
 Expected response:
 
   Status: 200
 
-  Body contains:
-  - "printer_id": non-empty string (capture as printer_id)
-  - "status": "REGISTERED"
+  Body contains: {
+    "printer_id": <non-empty string>,
+    "status": "REGISTERED"
+  }
 
-Notes: Agent 4 should verify that capabilities were persisted by using store.get_capabilities(printer_id) in tests (via fixtures) and asserting a non-None result with supports_print=True, supports_scan=True, supports_color=True given model_number "HP-C-MFP-9999".
+Notes: This scenario is UNTESTABLE via public HTTP APIs because capability records are not exposed by any endpoint in app/main.py. Agent 4 cannot directly verify that capabilities exist; only internal store functions can see them. Mark this scenario as requiring human clarification or additional endpoints before it can be automated.
 
 ---
 
-## TC-GOAR-4-04: Failed registration removes capability record via rollback
+## TC-GOAR-4-04: Failed registration removes capabilities
 
 Scenario: [ROLLBACK] Registration where Welcome Page printing fails removes any capability record associated with the printer_id so none remain.
 
@@ -103,27 +126,34 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-004".
+Preconditions: No printer or capability record exists yet for serial_number "SN-GOAR4-004".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-004", "model_number": "HP-C-MFP-9999", "firmware_version": "1.0.0", "simulate_welcome_page_failure": true}
+  Body: {
+    "serial_number": "SN-GOAR4-004",
+    "model_number": "HP-C-MFP-9999",
+    "firmware_version": "1.0.1",
+    "simulate_welcome_page_failure": true
+  }
 
 Expected response:
 
   Status: 422
 
-  Body contains:
-  - "detail": string containing "Welcome page failed to print"
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-004"
+  }
 
-Notes: Rollback test. Before action, no capabilities exist for this printer_id or serial. Action is the failing POST. After action, Agent 4 must assert that store.get_capabilities_for_serial("SN-GOAR4-004") or equivalent store lookup returns None; if only printer_id-based lookup exists, first confirm that no printer is present for that serial and then assert no capability mapping exists in store for any printer with that serial. Use reset_store fixture to isolate state.
+Notes: This scenario is UNTESTABLE via public HTTP APIs because capability records are not exposed by any endpoint in app/main.py. Agent 4 cannot verify deletion of capabilities through the API surface; it would require direct access to app.store. Flag this test as needing additional API support or test hooks before implementation.
 
 ---
 
-## TC-GOAR-4-05: Successful registration allows lookup by serial index
+## TC-GOAR-4-05: Successful registration allows serial lookup
 
 Scenario: [HAPPY PATH] Successful registration with Welcome Page printing completes and allows lookup of the printer via its serial number.
 
@@ -133,28 +163,36 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-005".
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-005".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-005", "model_number": "HP-LJ-2060", "firmware_version": "1.0.0", "simulate_welcome_page_failure": false}
+  Body: {
+    "serial_number": "SN-GOAR4-005",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.2",
+    "simulate_welcome_page_failure": false
+  }
 
 Expected response:
 
   Status: 200
 
-  Body contains:
-  - "printer_id": non-empty string (capture as printer_id)
-  - "status": "REGISTERED"
+  Body contains: {
+    "printer_id": <non-empty string>,
+    "status": "REGISTERED",
+    "history": list containing an entry with substring "Registration started"
+  }
 
-Notes: After the POST, Agent 4 should verify that the serial index is populated by using a store.get_printer_by_serial("SN-GOAR4-005") helper if available, and that it returns the same printer_id. If only API-level verification is allowed, this can be implicitly confirmed by the absence of 422 errors on duplicate registration workflows in other tests.
+Notes: Serial-number lookup is not exposed by any endpoint in app/main.py (only lookup by printer_id is available). This scenario is therefore UNTESTABLE through the current API; Agent 4 cannot call store.get_printer_by_serial from tests. Mark as requiring a future GET /printers/by-serial/{serial_number} endpoint or similar before it can be automated.
 
 ---
 
-## TC-GOAR-4-06: Failed registration frees serial number for reuse
+## TC-GOAR-4-06: Failed registration frees serial for reuse
 
 Scenario: [ROLLBACK] Registration where Welcome Page printing fails removes the serial index so a subsequent registration using the same serial number behaves like a fresh registration.
 
@@ -164,27 +202,34 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-006".
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-006".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-006", "model_number": "HP-LJ-2055", "firmware_version": "1.0.0", "simulate_welcome_page_failure": true}
+  Body: First call (failure): {
+    "serial_number": "SN-GOAR4-006",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": true
+  }
 
 Expected response:
 
   Status: 422
 
-  Body contains:
-  - "detail": string containing "Welcome page failed to print"
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-006"
+  }
 
-Notes: Rollback test. Before action, serial_number "SN-GOAR4-006" is unused. Action is the failing POST. After action, Agent 4 must perform a second POST /printers/register with the same body but simulate_welcome_page_failure=false and assert 200 with a new printer_id and cloud_id. This confirms that the serial index was cleared and the subsequent registration behaves like a fresh registration. Use reset_store to isolate the test.
+Notes: After the failed registration, Agent 4 should perform a second POST /printers/register for the same serial_number with simulate_welcome_page_failure set to false and assert a 200 response with status "REGISTERED" and a new printer_id. This confirms that the serial number behaves like a fresh registration. Reset of in-memory store between tests is handled by the test harness; no explicit reset_store call is needed here.
 
 ---
 
-## TC-GOAR-4-07: Successful registration persists all data and is unaffected by rollback changes
+## TC-GOAR-4-07: Successful registration unaffected by rollback changes
 
 Scenario: [HAPPY PATH] Successful registration with Welcome Page printing persists printer, capabilities, and serial index and is not impacted by rollback changes.
 
@@ -194,29 +239,36 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-007".
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-007".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-007", "model_number": "HP-LJ-2055", "firmware_version": "1.0.0", "simulate_welcome_page_failure": false}
+  Body: {
+    "serial_number": "SN-GOAR4-007",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.3",
+    "simulate_welcome_page_failure": false
+  }
 
 Expected response:
 
   Status: 200
 
-  Body contains:
-  - "printer_id": non-empty string (capture as printer_id)
-  - "cloud_id": string starting with "CID-"
-  - "status": "REGISTERED"
+  Body contains: {
+    "printer_id": <non-empty string>,
+    "cloud_id": value matching regex "^CID-[A-F0-9]{12}$",
+    "status": "REGISTERED"
+  }
 
-Notes: After the successful registration, Agent 4 should verify that a subsequent unrelated failing registration for a different serial number (e.g., SN-GOAR4-007F) with simulate_welcome_page_failure=true does not affect the original printer: GET /printers/{printer_id} must still return 200 with unchanged printer_id and serial_number. This ensures rollback changes are scoped.
+Notes: To confirm successful registrations are not impacted by rollback changes, Agent 4 should perform this successful registration after running a separate test that triggers rollback (e.g., TC-GOAR-4-06). The result should still be 200 with a valid printer record. No explicit rollback is expected in logs or behavior for this path.
 
 ---
 
-## TC-GOAR-4-08: Registration without Authorization header is rejected without creating data
+## TC-GOAR-4-08: Missing Authorization header rejects registration and leaves no records
 
 Scenario: [AUTH] Registration attempt without an Authorization header is rejected and does not create any printer, capability, or serial index records.
 
@@ -226,27 +278,32 @@ Endpoint: POST /printers/register
 
 Auth: missing token (pass headers={} to override conftest.py default)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-008".
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-008".
 
 Request:
 
-  Headers: {} (overrides default to omit Authorization)
+  Headers: {}
 
-  Body: {"serial_number": "SN-GOAR4-008", "model_number": "HP-LJ-2055", "firmware_version": "1.0.0", "simulate_welcome_page_failure": false}
+  Body: {
+    "serial_number": "SN-GOAR4-008",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": false
+  }
 
 Expected response:
 
   Status: 422
 
-  Body contains:
-  - Validation error payload from FastAPI indicating missing Authorization header
+  Body contains: {
+    "detail": [validation error message indicating missing Authorization header]
+  }
 
-Notes: After the rejected call, Agent 4 should confirm that no printer was created for serial_number "SN-GOAR4-008" by checking that a subsequent authorized registration with the same serial_number succeeds with 200 and behaves as a fresh registration.
+Notes: FastAPI will return a 422 Unprocessable Entity because the verify_token dependency requires the Authorization header. After the 422, Agent 4 should not expect any printer record to exist; however, this cannot be verified via serial lookup or capabilities, only indirectly by ensuring no side effects are asserted in other tests that reuse this serial number.
 
 ---
 
-## TC-GOAR-4-09: Registration with invalid token is rejected without creating data
+## TC-GOAR-4-09: Invalid token rejects registration and leaves no records
 
 Scenario: [AUTH] Registration attempt with an invalid or expired token is rejected and does not create any printer, capability, or serial index records.
 
@@ -256,29 +313,37 @@ Endpoint: POST /printers/register
 
 Auth: invalid token (pass headers={"Authorization": "Bearer invalid_token"} to override default)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-009".
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-009".
 
 Request:
 
-  Headers: {"Authorization": "Bearer invalid_token", "Content-Type": "application/json"}
+  Headers: {
+    "Authorization": "Bearer invalid_token",
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-009", "model_number": "HP-LJ-2055", "firmware_version": "1.0.0", "simulate_welcome_page_failure": false}
+  Body: {
+    "serial_number": "SN-GOAR4-009",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.4",
+    "simulate_welcome_page_failure": false
+  }
 
 Expected response:
 
   Status: 401
 
-  Body contains:
-  - "detail": "Invalid or expired token"
+  Body contains: {
+    "detail": "Invalid or expired token"
+  }
 
-Notes: After the rejected call, Agent 4 should confirm that no printer was created for serial_number "SN-GOAR4-009" by issuing a validly authorized registration with the same serial_number and asserting 200 with status "REGISTERED".
+Notes: Because verify_token raises HTTPException(401) before reaching registration.register_printer, no printer, capability, or serial index data will be created. Agent 4 can indirectly validate this by later reusing "SN-GOAR4-009" in a successful registration test and confirming it behaves like a first-time registration.
 
 ---
 
-## TC-GOAR-4-10: Non-simulated pre-Welcome-Page failure triggers rollback
+## TC-GOAR-4-10: Idempotent rollback leaves no records after multiple calls
 
-Scenario: [HAPPY PATH] A non-simulated failure before the Welcome Page prints triggers rollback that removes printer record, capability record, and serial index.
+Scenario: [ROLLBACK] Calling rollback multiple times for the same failed registration leaves no printer record, capability record, or serial index for that serial number.
 
 Requirement: AR1
 
@@ -286,29 +351,36 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-010".
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-010".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "", "model_number": "HP-LJ-2055", "firmware_version": "1.0.0", "simulate_welcome_page_failure": false}
+  Body: {
+    "serial_number": "SN-GOAR4-010",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": true
+  }
 
 Expected response:
 
   Status: 422
 
-  Body contains:
-  - "detail": "serial_number, model_number and firmware_version are required"
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-010"
+  }
 
-Notes: This uses a validation-style failure to simulate a pre-Welcome-Page error; rollback must ensure that no printer, capability, or serial index is created for the invalid request. Agent 4 should assert that store.get_printer_by_serial("") returns None and that no capabilities exist for any printer with an empty serial; since such a serial is invalid, the primary assertion is that no state changes occur.
+Notes: This scenario is UNTESTABLE strictly from the HTTP API because multiple calls to _rollback_registration are internal implementation details. Agent 4 can only observe a single 422 error. Verifying that a second internal rollback call is harmless would require direct access to the registration._rollback_registration function or store mocks. Mark as requiring lower-level tests beyond API scope.
 
 ---
 
-## TC-GOAR-4-11: Simulated and real WelcomePagePrintError both invoke rollback
+## TC-GOAR-4-11: Second rollback call completes without errors
 
-Scenario: [ROLLBACK] Simulated Welcome Page print failure and a real WelcomePagePrintError both invoke rollback so that no partial printer, capability, or serial index data remains afterward.
+Scenario: [BOUNDARY VALUE] A second rollback call after records are already deleted completes without raising errors caused by missing printer, capability, or serial index data.
 
 Requirement: AR1
 
@@ -316,29 +388,36 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-011A" or "SN-GOAR4-011B".
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-011".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: For simulated failure: {"serial_number": "SN-GOAR4-011A", "model_number": "HP-LJ-2055", "firmware_version": "1.0.0", "simulate_welcome_page_failure": true}; for real failure, configure test double of generate_and_print_welcome_page to raise WelcomePagePrintError for serial_number "SN-GOAR4-011B" with simulate_welcome_page_failure=false.
+  Body: {
+    "serial_number": "SN-GOAR4-011",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.1",
+    "simulate_welcome_page_failure": true
+  }
 
 Expected response:
 
-  Status: 422 for both calls
+  Status: 422
 
-  Body contains:
-  - "detail": string containing "Welcome page failed to print" for each failure
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-011"
+  }
 
-Notes: Rollback test. Before each action, no state exists for the respective serial. After each failing POST, Agent 4 must assert via store helpers that both printers remain absent (get_printer_by_serial returns None), no capabilities exist for their printer_ids, and their serial numbers can be reused in a subsequent successful registration.
+Notes: Like TC-GOAR-4-10, the second rollback invocation is not exposed via the HTTP API. The API returns only one 422 per failed call. This scenario is UNTESTABLE at the API layer and should be validated with unit tests around _rollback_registration using a fake store.
 
 ---
 
-## TC-GOAR-4-12: Failed registration with capabilities created leaves none after rollback
+## TC-GOAR-4-12: Rollback deletes only failing printer’s capabilities
 
-Scenario: [ROLLBACK] A failed registration where capabilities were created during the current attempt leaves no capability record for the printer_id after rollback, avoiding orphans.
+Scenario: [HAPPY PATH] Rollback for a failed registration deletes capabilities only for the failing printer_id and leaves capabilities for other printer_ids intact.
 
 Requirement: AR2
 
@@ -346,29 +425,37 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-012".
+Preconditions: Two distinct serial numbers are unused: "SN-GOAR4-012A" and "SN-GOAR4-012B".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-012", "model_number": "HP-C-MFP-9999", "firmware_version": "1.0.0", "simulate_welcome_page_failure": true}
+  Body: First, successful registration for serial "SN-GOAR4-012A": {
+    "serial_number": "SN-GOAR4-012A",
+    "model_number": "HP-C-MFP-9999",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": false
+  }
 
 Expected response:
 
-  Status: 422
+  Status: 200
 
-  Body contains:
-  - "detail": string containing "Welcome page failed to print"
+  Body contains: {
+    "printer_id": <non-empty string>,
+    "status": "REGISTERED"
+  }
 
-Notes: Rollback test. Because capabilities are captured before the Welcome Page, this failure path exercises deletion of capabilities. Agent 4 should assert that no capabilities remain for the failed printer after rollback by checking store.get_capabilities_for_serial("SN-GOAR4-012") or equivalent, and that a subsequent successful registration with the same serial_number creates fresh capabilities.
+Notes: This scenario is UNTESTABLE via API because capabilities for each printer_id are not exposed. Rollback scoping to a specific printer_id cannot be observed through available endpoints. Mark as needing store-level or integration tests with additional API support.
 
 ---
 
-## TC-GOAR-4-13: Rollback is safe when no capabilities exist
+## TC-GOAR-4-13: Rollback does not delete capabilities for other printers or owners
 
-Scenario: [BOUNDARY VALUE] Rollback on a failed registration where no capability record exists for the printer_id completes without error and still deletes any printer record and serial index.
+Scenario: [OWNERSHIP] Rollback for a failed registration of one printer_id does not delete or modify capability records belonging to other printers or owners.
 
 Requirement: AR2
 
@@ -376,29 +463,36 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-013".
+Preconditions: One printer has been successfully registered and claimed: serial_number "SN-GOAR4-013A" is registered and claimed by user "user-goar4-owner"; another serial_number "SN-GOAR4-013B" is unused.
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-013", "model_number": "HP-LJ-001", "firmware_version": "1.0.0", "simulate_welcome_page_failure": true}
+  Body: Failed registration for serial "SN-GOAR4-013B": {
+    "serial_number": "SN-GOAR4-013B",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": true
+  }
 
 Expected response:
 
   Status: 422
 
-  Body contains:
-  - "detail": string containing "Welcome page failed to print"
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-013B"
+  }
 
-Notes: Rollback test. This scenario assumes an implementation detail (capabilities may not yet exist) that cannot be guaranteed solely via public API; therefore Agent 4 should mark this scenario as UNTESTABLE at the API level and skip automated implementation until store-level hooks to simulate missing capabilities during rollback are available.
+Notes: Capability modification for other printers cannot be verified through the public API. However, Agent 4 can at least assert that after the failure, GET /printers/{printer_id_of_013A} still returns 200 with status "CLAIMED" and owner_user_id "user-goar4-owner". The specific capability records remain UNOBSERVABLE via API, so full AR2 verification is UNTESTABLE at this layer.
 
 ---
 
-## TC-GOAR-4-14: Serial index not stale after rollback
+## TC-GOAR-4-14: Fresh registration after rollback behaves as first-time registration
 
-Scenario: [ROLLBACK] After rollback from a failed registration, lookups by the failed serial number do not return any stale printer_id mapping.
+Scenario: [HAPPY PATH] After rollback from a failed registration, a subsequent registration with the same serial_number behaves exactly like a first-time registration.
 
 Requirement: AR3
 
@@ -406,29 +500,36 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-014".
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-014".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-014", "model_number": "HP-LJ-2055", "firmware_version": "1.0.0", "simulate_welcome_page_failure": true}
+  Body: First call (failure): {
+    "serial_number": "SN-GOAR4-014",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": true
+  }
 
 Expected response:
 
   Status: 422
 
-  Body contains:
-  - "detail": string containing "Welcome page failed to print"
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-014"
+  }
 
-Notes: Rollback test. After the failing POST, Agent 4 should assert via store.get_printer_by_serial("SN-GOAR4-014") that no printer_id is mapped to this serial. A subsequent successful registration with the same serial_number must behave as a fresh registration and confirm that a new mapping is created.
+Notes: After the failed registration, Agent 4 should call POST /printers/register again with the same serial_number, same model_number, firmware_version "1.0.1", and simulate_welcome_page_failure=false. The second call should return 200 with a new printer_id, status "REGISTERED", and a cloud_id matching the CID pattern, confirming first-time registration behavior after rollback.
 
 ---
 
-## TC-GOAR-4-15: Serial index removed even if printer record was never persisted
+## TC-GOAR-4-15: After rollback, serial lookup shows no residual mapping
 
-Scenario: [BOUNDARY VALUE] Failed registration where serial index was created but printer record was never persisted still removes the serial index during rollback so the serial can be reused.
+Scenario: [ROLLBACK] After rollback, lookups by the failed serial_number show no residual serial index or printer mapping that would block reuse.
 
 Requirement: AR3
 
@@ -436,29 +537,36 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-015".
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-015".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-015", "model_number": "HP-LJ-2055", "firmware_version": "1.0.0", "simulate_welcome_page_failure": true}
+  Body: {
+    "serial_number": "SN-GOAR4-015",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": true
+  }
 
 Expected response:
 
   Status: 422
 
-  Body contains:
-  - "detail": string containing "Welcome page failed to print"
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-015"
+  }
 
-Notes: Rollback test. This boundary case depends on an internal ordering where the serial index may be written before the printer record is fully persisted; since this cannot be forced via the public API, Agent 4 should mark this scenario as UNTESTABLE and skip implementation until hooks are provided to simulate partial persistence.
+Notes: Direct serial lookup is not available via the API, so residual serial index state is UNTESTABLE from the HTTP layer. As in TC-GOAR-4-14, Agent 4 can infer absence of blocking state by performing a subsequent successful registration for the same serial and asserting 200 with a new printer_id, but it cannot directly inspect the serial index. Mark the direct lookup aspect as UNTESTABLE via current endpoints.
 
 ---
 
-## TC-GOAR-4-16: Rollback does not affect unrelated printers
+## TC-GOAR-4-16: Rollback does not alter already-claimed printers
 
-Scenario: [HAPPY PATH] Failed registration for a new printer rolls back printer, capability, and serial index for that printer_id while leaving existing printers untouched.
+Scenario: [HAPPY PATH] Rollback for a failed registration of a new printer_id does not alter the records or claim state of any already-claimed printers.
 
 Requirement: AR4
 
@@ -466,30 +574,36 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset.
-- A baseline printer is registered successfully with serial_number "SN-GOAR4-016A" and model_number "HP-LJ-2055".
+Preconditions: One printer has been registered and claimed: serial_number "SN-GOAR4-016A" registered with model_number "HP-LJ-2055" and claimed by user_id "user-goar4-claim" via POST /printers/claim. A second serial_number "SN-GOAR4-016B" is unused.
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-016B", "model_number": "HP-C-MFP-9999", "firmware_version": "1.0.0", "simulate_welcome_page_failure": true}
+  Body: Failed registration for "SN-GOAR4-016B": {
+    "serial_number": "SN-GOAR4-016B",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": true
+  }
 
 Expected response:
 
   Status: 422
 
-  Body contains:
-  - "detail": string containing "Welcome page failed to print"
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-016B"
+  }
 
-Notes: Rollback test. After the failing registration for "SN-GOAR4-016B", Agent 4 should assert that the baseline printer "SN-GOAR4-016A" is still present and unchanged via GET /printers/{baseline_printer_id}, while no printer or capabilities exist for "SN-GOAR4-016B" and its serial can be reused in a later successful registration.
+Notes: Before triggering the failed registration, Agent 4 should call GET /printers/{printer_id_of_016A} and assert status 200, status "CLAIMED", and owner_user_id "user-goar4-claim". After the failed registration and rollback, Agent 4 must call GET /printers/{printer_id_of_016A} again and assert these fields are unchanged, confirming rollback did not alter the claimed printer.
 
 ---
 
-## TC-GOAR-4-17: Rollback for one printer does not modify others' data
+## TC-GOAR-4-17: Rollback does not modify other CLAIMED printers
 
-Scenario: [OWNERSHIP] Rollback for a failed registration of one printer_id does not delete or modify printer records, capabilities, or serial indices belonging to other printers.
+Scenario: [OWNERSHIP] Rollback invoked for a failed registration does not delete or modify printer, capability, or serial index data for any other CLAIMED printer.
 
 Requirement: AR4
 
@@ -497,30 +611,36 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset.
-- Two printers are registered successfully upfront: serial_number "SN-GOAR4-017A" with model_number "HP-LJ-2055" and serial_number "SN-GOAR4-017B" with model_number "HP-C-MFP-9999".
+Preconditions: Two printers have been registered and claimed: serial "SN-GOAR4-017A" claimed by "user-goar4-alpha" and serial "SN-GOAR4-017B" claimed by "user-goar4-beta". A third serial "SN-GOAR4-017C" is unused.
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-017C", "model_number": "HP-LJ-2060", "firmware_version": "1.0.0", "simulate_welcome_page_failure": true}
+  Body: Failed registration for unused serial "SN-GOAR4-017C": {
+    "serial_number": "SN-GOAR4-017C",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": true
+  }
 
 Expected response:
 
   Status: 422
 
-  Body contains:
-  - "detail": string containing "Welcome page failed to print"
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-017C"
+  }
 
-Notes: Rollback test. After the failing registration for "SN-GOAR4-017C", Agent 4 must call GET /printers/{printer_id_A} and GET /printers/{printer_id_B} and assert both still return 200 with their original serial_number and model_number values. Also assert that no printer or capabilities exist for "SN-GOAR4-017C".
+Notes: After the failed registration, Agent 4 should call GET /printers/{printer_id_of_017A} and GET /printers/{printer_id_of_017B} and assert both still return 200 with status "CLAIMED" and owner_user_id values unchanged. Capability and serial index data remain UNOBSERVABLE; ensure no deletions are inferred from API responses.
 
 ---
 
-## TC-GOAR-4-18: Successful registration after prior failures persists all data
+## TC-GOAR-4-18: Successful registration does not invoke rollback
 
-Scenario: [HAPPY PATH] After one or more failed registration attempts that rolled back fully, a subsequent successful registration for the same serial number persists printer, capability, and serial index data.
+Scenario: [HAPPY PATH] A successful registration where the Welcome Page prints does not call rollback and preserves printer, capability, and serial index data.
 
 Requirement: AR5
 
@@ -528,31 +648,37 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-018".
-- At least one prior failed registration has been executed for "SN-GOAR4-018" using simulate_welcome_page_failure=true.
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-018".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-018", "model_number": "HP-C-MFP-9999", "firmware_version": "1.0.1", "simulate_welcome_page_failure": false}
+  Body: {
+    "serial_number": "SN-GOAR4-018",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "2.0.0",
+    "simulate_welcome_page_failure": false
+  }
 
 Expected response:
 
   Status: 200
 
-  Body contains:
-  - "printer_id": non-empty string (capture as printer_id)
-  - "status": "REGISTERED"
+  Body contains: {
+    "printer_id": <non-empty string>,
+    "status": "REGISTERED"
+  }
 
-Notes: After the successful registration, Agent 4 should assert that capabilities are present for printer_id and that store.get_printer_by_serial("SN-GOAR4-018") returns printer_id. This confirms that prior rollbacks did not prevent a subsequent successful registration from persisting full state.
+Notes: Whether _rollback_registration is called internally cannot be observed directly from API responses. Agent 4 should treat this as a standard successful registration test. Any verification that rollback is not invoked should be deferred to unit tests with mocks on store.delete_printer/remove_serial_index/delete_capabilities. This scenario is partially UNTESTABLE at API level for the rollback invocation detail.
 
 ---
 
-## TC-GOAR-4-19: Rollback does not remove data from later successful registration
+## TC-GOAR-4-19: Rollback on failed registration does not affect later successful registration
 
-Scenario: [ROLLBACK] Previous failed registrations that invoked rollback do not remove or corrupt printer, capability, or serial index data created by a later successful registration.
+Scenario: [ROLLBACK] Failed registration attempts that invoke rollback do not trigger rollback during later successful registrations for the same serial_number.
 
 Requirement: AR5
 
@@ -560,55 +686,141 @@ Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- Test store is reset so no existing printer uses serial_number "SN-GOAR4-019".
-- One failed registration has been executed for "SN-GOAR4-019" (simulate_welcome_page_failure=true) and then one successful registration for the same serial_number (simulate_welcome_page_failure=false).
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-019".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-019", "model_number": "HP-LJ-2055", "firmware_version": "1.0.2", "simulate_welcome_page_failure": false}
+  Body: First call (failure): {
+    "serial_number": "SN-GOAR4-019",
+    "model_number": "HP-LJ-2055",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": true
+  }
 
 Expected response:
 
-  Status: 200
+  Status: 422
 
-  Body contains:
-  - "printer_id": non-empty string (capture as printer_id_latest)
-  - "status": "REGISTERED" or "CLAIMED" depending on prior operations
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-019"
+  }
 
-Notes: Rollback test. After this additional successful registration, Agent 4 should ensure that no subsequent rollback is triggered for past failures and that the final printer state (queried via GET /printers/{printer_id_latest}) shows consistent serial_number, model_number, and capabilities. This primarily validates that rollback logic is only invoked on failure and does not retroactively affect successful registrations.
+Notes: After the failed registration, Agent 4 should perform a second POST /printers/register with the same serial_number, model_number "HP-LJ-2055", firmware_version "1.0.1", and simulate_welcome_page_failure=false. The second call should return 200 with status "REGISTERED" and a valid cloud_id, showing that rollback from the first attempt does not cause subsequent success to be rolled back.
 
 ---
 
-## TC-GOAR-4-20: UNTESTABLE scenario for AR2 boundary condition
+## TC-GOAR-4-20: Capabilities for failed registration not externally visible via API
 
-Scenario: [ROLLBACK] Previous failed registrations that invoked rollback do not remove or corrupt printer, capability, or serial index data created by a later successful registration.
+Scenario: [ROLLBACK] After rollback of a failed registration, no capability records for that printer_id are returned by downstream capability or device list queries.
 
-Requirement: AR5
+Requirement: AR6
 
 Endpoint: POST /printers/register
 
 Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
 
-Preconditions:
-- This scenario is UNTESTABLE with current public APIs and store hooks.
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-020".
 
 Request:
 
-  Headers: {"Content-Type": "application/json"}
+  Headers: {
+    "Content-Type": "application/json"
+  }
 
-  Body: {"serial_number": "SN-GOAR4-020", "model_number": "HP-LJ-2055", "firmware_version": "1.0.0", "simulate_welcome_page_failure": false}
+  Body: {
+    "serial_number": "SN-GOAR4-020",
+    "model_number": "HP-C-MFP-9999",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": true
+  }
 
 Expected response:
 
-  Status: 200
+  Status: 422
 
-  Body contains:
-  - "printer_id": non-empty string
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-020"
+  }
 
-Notes: This scenario is marked UNTESTABLE because it duplicates AR5 behavior already covered and introduces no new observable behavior. Agent 4 should skip this test and treat it as documentation only.
+Notes: There are no capability or device list endpoints in app/main.py, so this scenario is UNTESTABLE at the HTTP API layer. Downstream queries cannot be simulated without additional services or endpoints. Mark as requiring broader system integration to validate AR6.
+
+---
+
+## TC-GOAR-4-21: Capability records deleted before any external observation
+
+Scenario: [BOUNDARY VALUE] Capability records created during a failed registration are deleted by rollback before any subsequent external query can observe them.
+
+Requirement: AR6
+
+Endpoint: POST /printers/register
+
+Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
+
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-021".
+
+Request:
+
+  Headers: {
+    "Content-Type": "application/json"
+  }
+
+  Body: {
+    "serial_number": "SN-GOAR4-021",
+    "model_number": "HP-C-MFP-9999",
+    "firmware_version": "1.0.1",
+    "simulate_welcome_page_failure": true
+  }
+
+Expected response:
+
+  Status: 422
+
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-021"
+  }
+
+Notes: As with TC-GOAR-4-20, capability visibility cannot be tested via the current API. Agent 4 can only assert that the POST returns 422; verifying deletion timing relative to external queries requires additional observability or API endpoints. Mark as UNTESTABLE at API level for the timing aspect.
+
+---
+
+## TC-GOAR-4-22: Registration rollback for model family boundary case
+
+Scenario: [BOUNDARY VALUE] Capability records created during a failed registration are deleted by rollback before any subsequent external query can observe them.
+
+Requirement: AR6
+
+Endpoint: POST /printers/register
+
+Auth: valid token (Authorization header attached by conftest.py client fixture by default — no extra code needed)
+
+Preconditions: No printer record exists yet for serial_number "SN-GOAR4-022".
+
+Request:
+
+  Headers: {
+    "Content-Type": "application/json"
+  }
+
+  Body: {
+    "serial_number": "SN-GOAR4-022",
+    "model_number": "HP-LJ-001",
+    "firmware_version": "1.0.0",
+    "simulate_welcome_page_failure": true
+  }
+
+Expected response:
+
+  Status: 422
+
+  Body contains: {
+    "detail": "Welcome page failed to print for printer_id=SN-GOAR4-022"
+  }
+
+Notes: This test uses the model_number boundary case "HP-LJ-001" to ensure rollback behaves correctly even for models at the edge of the _model_family heuristic. As with other AR6 scenarios, capability deletion timing is UNTESTABLE via current API endpoints. Focus on ensuring the failure yields 422 and that subsequent successful registration for the same serial_number works as expected if implemented in additional tests.
 
 ---
 
@@ -625,16 +837,16 @@ Notes: This scenario is marked UNTESTABLE because it duplicates AR5 behavior alr
 | TC-GOAR-4-07 | HAPPY PATH | AC4 | POST /printers/register | valid token |
 | TC-GOAR-4-08 | AUTH | AC4 | POST /printers/register | missing token |
 | TC-GOAR-4-09 | AUTH | AC4 | POST /printers/register | invalid token |
-| TC-GOAR-4-10 | HAPPY PATH | AR1 | POST /printers/register | valid token |
-| TC-GOAR-4-11 | ROLLBACK | AR1 | POST /printers/register | valid token |
-| TC-GOAR-4-12 | ROLLBACK | AR2 | POST /printers/register | valid token |
-| TC-GOAR-4-13 | BOUNDARY VALUE | AR2 | POST /printers/register | valid token |
-| TC-GOAR-4-14 | ROLLBACK | AR3 | POST /printers/register | valid token |
-| TC-GOAR-4-15 | BOUNDARY VALUE | AR3 | POST /printers/register | valid token |
+| TC-GOAR-4-10 | ROLLBACK | AR1 | POST /printers/register | valid token |
+| TC-GOAR-4-11 | BOUNDARY VALUE | AR1 | POST /printers/register | valid token |
+| TC-GOAR-4-12 | HAPPY PATH | AR2 | POST /printers/register | valid token |
+| TC-GOAR-4-13 | OWNERSHIP | AR2 | POST /printers/register | valid token |
+| TC-GOAR-4-14 | HAPPY PATH | AR3 | POST /printers/register | valid token |
+| TC-GOAR-4-15 | ROLLBACK | AR3 | POST /printers/register | valid token |
 | TC-GOAR-4-16 | HAPPY PATH | AR4 | POST /printers/register | valid token |
 | TC-GOAR-4-17 | OWNERSHIP | AR4 | POST /printers/register | valid token |
 | TC-GOAR-4-18 | HAPPY PATH | AR5 | POST /printers/register | valid token |
 | TC-GOAR-4-19 | ROLLBACK | AR5 | POST /printers/register | valid token |
-| TC-GOAR-4-20 | ROLLBACK | AR5 | POST /printers/register | valid token |
-
-
+| TC-GOAR-4-20 | ROLLBACK | AR6 | POST /printers/register | valid token |
+| TC-GOAR-4-21 | BOUNDARY VALUE | AR6 | POST /printers/register | valid token |
+| TC-GOAR-4-22 | BOUNDARY VALUE | AR6 | POST /printers/register | valid token |
