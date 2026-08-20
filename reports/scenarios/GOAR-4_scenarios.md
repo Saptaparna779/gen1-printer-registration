@@ -32,44 +32,51 @@
 [AUTH] Registration attempt with an invalid or expired token is rejected and does not create any printer, capability, or serial index records.
            Requirement: AC4
 
-### AR1 — Rollback must be triggered for any failure prior to successful Welcome Page printing
+### AR1 — Capability rollback must be idempotent
 
-[HAPPY PATH] A non-simulated failure before the Welcome Page prints triggers rollback that removes printer record, capability record, and serial index.
+[ROLLBACK] Calling rollback multiple times for the same failed registration leaves no printer record, capability record, or serial index for that serial number.
            Requirement: AR1
-[ROLLBACK] Simulated Welcome Page print failure and a real WelcomePagePrintError both invoke rollback so that no partial printer, capability, or serial index data remains afterward.
+[BOUNDARY VALUE] A second rollback call after records are already deleted completes without raising errors caused by missing printer, capability, or serial index data.
            Requirement: AR1
 
-### AR2 — Capability deletion in rollback must be idempotent and safe when no capability exists
+### AR2 — Capability rollback must be scoped to the failing registration’s printer_id
 
-[ROLLBACK] A failed registration where capabilities were created during the current attempt leaves no capability record for the printer_id after rollback, avoiding orphans.
+[HAPPY PATH] Rollback for a failed registration deletes capabilities only for the failing printer_id and leaves capabilities for other printer_ids intact.
            Requirement: AR2
-[BOUNDARY VALUE] Rollback on a failed registration where no capability record exists for the printer_id completes without error and still deletes any printer record and serial index.
+[OWNERSHIP] Rollback for a failed registration of one printer_id does not delete or modify capability records belonging to other printers or owners.
            Requirement: AR2
 
-### AR3 — Serial index removal must succeed even if printer record creation partially failed
+### AR3 — Serial index rollback must fully free the serial for reuse
 
-[ROLLBACK] After rollback from a failed registration, lookups by the failed serial number do not return any stale printer_id mapping.
+[HAPPY PATH] After rollback from a failed registration, a subsequent registration with the same serial_number behaves exactly like a first-time registration.
            Requirement: AR3
-[BOUNDARY VALUE] Failed registration where serial index was created but printer record was never persisted still removes the serial index during rollback so the serial can be reused.
+[ROLLBACK] After rollback, lookups by the failed serial_number show no residual serial index or printer mapping that would block reuse.
            Requirement: AR3
 
-### AR4 — Rollback must not affect existing printers unrelated to the failed registration
+### AR4 — Rollback must not change the state of already-claimed printers unrelated to the failing registration
 
-[HAPPY PATH] Failed registration for a new printer rolls back printer, capability, and serial index for that printer_id while leaving existing printers untouched.
+[HAPPY PATH] Rollback for a failed registration of a new printer_id does not alter the records or claim state of any already-claimed printers.
            Requirement: AR4
-[OWNERSHIP] Rollback for a failed registration of one printer_id does not delete or modify printer records, capabilities, or serial indices belonging to other printers.
+[OWNERSHIP] Rollback invoked for a failed registration does not delete or modify printer, capability, or serial index data for any other CLAIMED printer.
            Requirement: AR4
 
-### AR5 — Successful registrations must persist all required data even after intermittent failures
+### AR5 — Successful registration must never invoke rollback
 
-[HAPPY PATH] After one or more failed registration attempts that rolled back fully, a subsequent successful registration for the same serial number persists printer, capability, and serial index data.
+[HAPPY PATH] A successful registration where the Welcome Page prints does not call rollback and preserves printer, capability, and serial index data.
            Requirement: AR5
-[ROLLBACK] Previous failed registrations that invoked rollback do not remove or corrupt printer, capability, or serial index data created by a later successful registration.
+[ROLLBACK] Failed registration attempts that invoke rollback do not trigger rollback during later successful registrations for the same serial_number.
            Requirement: AR5
+
+### AR6 — Capability records for failed registrations must not be externally visible
+
+[ROLLBACK] After rollback of a failed registration, no capability records for that printer_id are returned by downstream capability or device list queries.
+           Requirement: AR6
+[BOUNDARY VALUE] Capability records created during a failed registration are deleted by rollback before any subsequent external query can observe them.
+           Requirement: AR6
 
 ## Coverage Summary
 
-Total scenarios: 20
+Total scenarios: 22
 
-Happy path: 7 | Invalid input: 0 | Boundary: 3 |
-Auth: 2 | Ownership: 1 | Rollback: 7
+Happy path: 9 | Invalid input: 0 | Boundary: 3 |
+Auth: 2 | Ownership: 3 | Rollback: 5
