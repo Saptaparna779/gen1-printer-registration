@@ -2,7 +2,8 @@
 
 ## TC-GOAR-4-01: Rollback removes printer record when Welcome Page fails
 
-Scenario: [ROLLBACK] Simulated Welcome Page failure triggers rollback that removes the printer record created during registration.
+Scenario: [ROLLBACK] Simulated Welcome Page failure triggers rollback that removes the printer record created during registration.  
+             Requirement: AC1
 
 Requirement: AC1
 
@@ -30,7 +31,8 @@ Notes: Agent 4 should assert status_code == 422 and that the detail string start
 
 ## TC-GOAR-4-02: Multiple failed registrations leave no printer record
 
-Scenario: [BOUNDARY]  Multiple consecutive failed registrations for the same serial_number all roll back without leaving any printer record.
+Scenario: [BOUNDARY]  Multiple consecutive failed registrations for the same serial_number all roll back without leaving any printer record.  
+             Requirement: AC1
 
 Requirement: AC1
 
@@ -56,9 +58,10 @@ Notes: This test relies on the fact that no 409 or duplicate-serial error is rai
 
 ---
 
-## TC-GOAR-4-03: Successful registration after failure reserves serial and printer record
+## TC-GOAR-4-03: Successful registration reserves serial and persists printer
 
-Scenario: [HAPPY PATH] First-time successful registration with a given serial_number completes and reserves that serial.
+Scenario: [HAPPY PATH] First-time successful registration with a given serial_number completes and reserves that serial.  
+             Requirement: AC3
 
 Requirement: AC3
 
@@ -86,7 +89,8 @@ Notes: This test establishes the baseline success path for AC3 and confirms the 
 
 ## TC-GOAR-4-04: Failed registration frees serial for subsequent first-time registration
 
-Scenario: [ROLLBACK]   Registration attempt with simulate_welcome_page_failure=True rolls back and frees the serial so that a subsequent registration behaves like a first-time registration.
+Scenario: [ROLLBACK]   Registration attempt with simulate_welcome_page_failure=True rolls back and frees the serial so that a subsequent registration behaves like a first-time registration.  
+             Requirement: AC3
 
 Requirement: AC3
 
@@ -114,7 +118,8 @@ Notes: This test directly validates that serial_number "SN-GOAR4-004" is freed b
 
 ## TC-GOAR-4-05: Multiple cycles of failure then success keep serial reusable
 
-Scenario: [BOUNDARY]   Multiple cycles of failed registration followed by successful registration verify the serial_number is always reusable with no stale associations.
+Scenario: [BOUNDARY]   Multiple cycles of failed registration followed by successful registration verify the serial_number is always reusable with no stale associations.  
+             Requirement: AC3
 
 Requirement: AC3
 
@@ -142,7 +147,8 @@ Notes: This test exercises repeated failure/success cycles to confirm the serial
 
 ## TC-GOAR-4-06: Successful registration persists printer, capability, and serial index
 
-Scenario: [HAPPY PATH] Successful registration when simulate_welcome_page_failure=False persists printer, capability, and serial index records unchanged by rollback logic.
+Scenario: [HAPPY PATH] Successful registration when simulate_welcome_page_failure=False persists printer, capability, and serial index records unchanged by rollback logic.  
+             Requirement: AC4
 
 Requirement: AC4
 
@@ -209,4 +215,3 @@ Notes: Capability persistence is verified indirectly via the "Capabilities captu
 | TC-GOAR-4-04 | ROLLBACK | AC3 | POST /printers/register | valid token |
 | TC-GOAR-4-05 | BOUNDARY | AC3 | POST /printers/register | valid token |
 | TC-GOAR-4-06 | HAPPY PATH | AC4 | POST /printers/register, GET /printers/{printer_id} | valid token |
-
