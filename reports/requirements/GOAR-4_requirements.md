@@ -123,3 +123,4 @@ None identified. The acceptance criteria are fully consistent with Rules 1, 2, 4
    - Question: Beyond deleting orphaned capability records on rollback, are there any additional GDPR-related requirements (e.g., retention policies, anonymization, or audit logging) that apply specifically to capability data created during failed registrations?
    - Why unresolvable: Rule 12 frames deregistration in terms of GDPR but does not define GDPR handling for failed registrations or isolated capability records; the ticket only states that orphaned capability records are "a GDPR compliance concern" without elaboration.
    - Exclude from scoring: Compliance-focused agents must not infer additional GDPR behaviours (such as specific retention windows or audit exports) for capability records beyond the explicit requirement to delete them on rollback.
+
