@@ -2,13 +2,12 @@
 
 ## Scenarios by Requirement
 
-
 ### AC1 — Every registration call generates a brand new Cloud ID
 
 [HAPPY PATH] Initial registration and subsequent re-registration of the same serial number both succeed and the second response returns a Cloud ID different from the first.
              Requirement: AC1
 
-[BOUNDARY VALUE] Multiple sequential registrations for the same serial number (e.g., three calls in a row) all succeed and each response returns a Cloud ID that is unique across the entire sequence.
+[BOUNDARY VALUE] Multiple sequential registrations for the same serial number (for example, three successful calls in a row) each return a Cloud ID that is unique across the entire sequence.
              Requirement: AC1
 
 
@@ -17,7 +16,7 @@
 [HAPPY PATH] Re-registering an already-registered printer succeeds and the new response contains a printer_email_id and claim_code that both differ from those returned by the previous registration.
              Requirement: AC2
 
-[INVALID INPUT] Re-registration with an input that would otherwise be valid but attempts to reuse a previously assigned printer_email_id is rejected without changing any existing identifiers.
+[INVALID INPUT] Re-registration with an otherwise valid request that attempts to reuse a previously assigned printer_email_id is rejected without changing any existing identifiers.
              Requirement: AC2
 
 [ROLLBACK] A failed re-registration that attempts to assign a duplicate printer_email_id leaves the persisted printer_email_id and claim_code unchanged from their pre-attempt values.
@@ -29,10 +28,10 @@
 [HAPPY PATH] Re-registering a printer that is already in CLAIMED status succeeds, returns a new Cloud ID, and the printer’s owner_user_id and CLAIMED status remain unchanged.
              Requirement: AR1
 
-[OWNERSHIP] A non-owner user attempting to re-register a CLAIMED printer cannot change owner_user_id, and the printer remains associated with the original owner even though the Cloud ID is regenerated.
+[OWNERSHIP] A non-owner actor attempting to re-register a CLAIMED printer cannot change owner_user_id, and the printer remains associated with the original owner even though the Cloud ID is regenerated.
              Requirement: AR1
 
-[ROLLBACK] A failed re-registration of a CLAIMED printer (before Welcome Page print) leaves owner_user_id and CLAIMED status unchanged and does not persist any partial Cloud ID change.
+[ROLLBACK] A failed re-registration of a CLAIMED printer before the Welcome Page prints leaves owner_user_id and CLAIMED status unchanged and does not persist any partial Cloud ID change.
              Requirement: AR1
 
 
@@ -77,4 +76,3 @@
 Total scenarios: 15
 
 Happy path: 7 | Invalid input: 1 | Boundary: 3 | Auth: 0 | Ownership: 1 | Rollback: 3
-
