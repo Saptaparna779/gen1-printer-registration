@@ -42,3 +42,4 @@ Justification: The fix directly closes the reported rollback gap and satisfies a
 - **Saptaparna Dasgupta:** QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/GOAR-4_diff.txt and jira_context/GOAR-4_live.md).
 - **Saptaparna Dasgupta:** QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/GOAR-4_diff.txt and jira_context/GOAR-4_live.md).
 - **Saptaparna Dasgupta:** QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/GOAR-4_diff.txt and jira_context/GOAR-4_live.md).
+- **Saptaparna Dasgupta:** QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/GOAR-4_diff.txt and jira_context/GOAR-4_live.md).
