@@ -17,11 +17,6 @@ Failed printer registrations that abort at the Welcome/Info Page printing step a
     - `store.remove_serial_index(printer.serial_number)` — removes the serial index entry.
     - `store.delete_capabilities(printer.printer_id)` — removes any capability record for that printer_id (the GOAR-4 fix).
 
-- app/store.py — printer and capability persistence helpers (indirectly affected)
-  - `delete_printer(printer_id: str)` — deletes the printer from the in-memory store.
-  - `remove_serial_index(serial_number: str)` — removes the serial-to-printer_id index entry.
-  - `delete_capabilities(printer_id: str)` — deletes capabilities associated with a printer.
-
 Diff vs implementation note:
 - reports/GOAR-4_diff.txt is empty in the repo snapshot, so it does not explicitly show the addition of `store.delete_capabilities(printer.printer_id)` to `_rollback_registration`.
 - The Jira Validation Report and the actual implementation in app/registration.py both show that capability deletion is now part of rollback. This mismatch is recorded as an open question; tests and requirements should trust the source implementation over the empty diff.
@@ -48,7 +43,7 @@ How it applies:
 ### Rule 4 — Capabilities captured once at registration time
 
 "Printer capabilities are captured once at registration time so
-downstream services never need to re-query the device."
+ downstream services never need to re-query the device."
 
 How it applies:
 - `register_printer` captures capabilities during registration and persists them via `store.save_capabilities`. GOAR-4 ensures that these capability records only persist when registration actually succeeds (Welcome Page prints). For failed registrations, they are removed by `_rollback_registration`, preventing downstream services from seeing capabilities for a printer that did not successfully register.
@@ -56,7 +51,7 @@ How it applies:
 ### Rule 12 — Deregistration must remove data (GDPR compliance)
 
 "Deregistration must remove all cloud associations and printer data
-(GDPR compliance)."
+ (GDPR compliance)."
 
 How it applies:
 - While this rule is about deregistration, the Jira ticket explicitly cites orphaned capability records as a "GDPR compliance concern." GOAR-4’s rollback behavior mirrors the spirit of Rule 12 by ensuring that failed registrations do not leave behind persistent printer data, including capabilities, that could be considered personal or device-identifying information.
@@ -67,9 +62,9 @@ How it applies:
 
 - "When Welcome Page printing fails, no printer record remains."
 - "When Welcome Page printing fails, no capability record remains for that
-printer_id."
+ printer_id."
 - "When Welcome Page printing fails, the serial number is free to be
-registered again from scratch."
+ registered again from scratch."
 - "Successful registrations are unaffected (do not regress)."
 
 ## 5. Proposed Additional Requirements [PROPOSED -- NOT IN ORIGINAL TICKET]
@@ -123,4 +118,3 @@ None identified. The acceptance criteria are fully consistent with Rules 1, 2, 4
    - Question: Beyond deleting orphaned capability records on rollback, are there any additional GDPR-related requirements (e.g., retention policies, anonymization, or audit logging) that apply specifically to capability data created during failed registrations?
    - Why unresolvable: Rule 12 frames deregistration in terms of GDPR but does not define GDPR handling for failed registrations or isolated capability records; the ticket only states that orphaned capability records are "a GDPR compliance concern" without elaboration.
    - Exclude from scoring: Compliance-focused agents must not infer additional GDPR behaviours (such as specific retention windows or audit exports) for capability records beyond the explicit requirement to delete them on rollback.
-
