@@ -118,7 +118,7 @@ Notes: Agent 4 should not assume printer_id_3 == printer_id_4; instead, assert t
 
 ## TC-GOAR-4-05: Successful registration persists printer and serial index
 
-Scenario: [HAPPY PATH] Successful registration when simulate_welcome_page_failure=False persists printer and serial index records without invoking rollback.  
+Scenario: [HAPPY PATH] Successful registration when simulate_welcome_page_failure=False persists printer, capability, and serial index records without invoking rollback.  
              Requirement: AC4
 
 Requirement: AC4
@@ -217,3 +217,4 @@ Notes: This test demonstrates that a success immediately after a failure behaves
 | TC-GOAR-4-04 | BOUNDARY | AC3 | POST /printers/register, GET /printers/{printer_id} | valid token |
 | TC-GOAR-4-05 | HAPPY PATH | AC4 | POST /printers/register, GET /printers/{printer_id} | valid token |
 | TC-GOAR-4-06 | BOUNDARY | AC4 | POST /printers/register, GET /printers/{printer_id} | valid token |
+
