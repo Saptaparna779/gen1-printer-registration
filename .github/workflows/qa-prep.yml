@@ -33,7 +33,7 @@ jobs:
       - name: Generate diff by searching commit history for the issue key
         run: |
           mkdir -p reports
-          FIX_COMMIT=$(git log origin/main --grep="${{ github.event.client_payload.issue_key }}" --format="%H|%an" -- app/ tests/ | grep -v -E "qa-automation-bot|Saptaparna779" | head -1 | cut -d'|' -f1)
+          FIX_COMMIT=$(git log origin/main --grep="${{ github.event.client_payload.issue_key }}" --format="%H|%an" | grep -v "qa-automation-bot" | head -1 | cut -d'|' -f1)
           if [ -z "$FIX_COMMIT" ]; then
             echo "No commit found on main mentioning ${{ github.event.client_payload.issue_key }} (excluding bot commits)" > reports/${{ github.event.client_payload.issue_key }}_diff.txt
           else
@@ -73,4 +73,4 @@ jobs:
           AAVA_API_TOKEN: ${{ secrets.AAVA_API_TOKEN }}
           GH_PAT: ${{ secrets.GH_PAT }}
           JIRA_PAT: ${{ secrets.JIRA_API_TOKEN }}
-        run: python trigger_aava_pipeline.py ${{ github.event.client_payload.issue_key }}
+        run: python trigger_aava_workflow.py ${{ github.event.client_payload.issue_key }}
