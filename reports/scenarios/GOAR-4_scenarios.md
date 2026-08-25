@@ -80,4 +80,3 @@ Total scenarios: 22
 
 Happy path: 4 | Invalid input: 0 | Boundary: 9 | Auth: 0 | Ownership: 2 | Rollback: 7
 
-COMMIT VERIFIED — reports/scenarios/GOAR-4_scenarios.md
