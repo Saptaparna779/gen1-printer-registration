@@ -103,67 +103,57 @@ Verbatim from `jira_context/GOAR-15_live.md`:
 
 ## 5. Proposed Additional Requirements [PROPOSED -- NOT IN ORIGINAL TICKET]
 
-1. **Case- and whitespace-insensitive model-number comparison**
-   - **Requirement (proposed)**: On re-registration, the comparison that detects `model_number` changes SHOULD treat case and leading/trailing whitespace as insignificant (e.g., `"HP-LJ-2055"` vs `" hp-lj-2055"` should not be considered a change).
-   - **Justification**: Edge case category — boundary values / normalization. This reduces spurious flags due to trivial formatting differences while maintaining the intended spoofing protection behavior.
-
-2. **Explicit codification of zero side effects on model-family mismatch**
+1. **Zero side effects on model-family mismatch rejection**
    - **Requirement (proposed)**: When re-registration is rejected due to a model-family mismatch, the system SHOULD guarantee that no changes are made to persistent state beyond logging and history entries that record the rejection.
-   - **Justification**: [Edge case category] rollback / partial-failure behaviour, plus Rule 2: "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained." This proposal makes the rollback expectation explicit for the specific GOAR-15 rejection path.
+   - **Justification**: Edge case category — rollback/partial-failure behaviour, plus Rule 2: "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained." This proposal makes the rollback expectation explicit for the specific GOAR-15 rejection path.
 
-3. **Clarify whether Cloud ID generation happens before or after the model-family gate**
+2. **Cloud ID allocation and rollback on rejection**
    - **Requirement (proposed)**: The system SHOULD either (a) ensure that `_generate_cloud_id()` is not called until after the model-family check succeeds, or (b) ensure that any Cloud ID generated before a failure is not persisted or reused.
-   - **Justification**: Edge case category — rollback / partial-failure behaviour, grounded in Rule 2 (no partial data) and Rule 3/6 (Cloud ID regeneration). This avoids consuming Cloud IDs for rejected attempts.
+   - **Justification**: Edge case category — rollback/partial-failure behaviour, grounded in Rule 2 and Rule 3/6 ("Cloud ID: system-generated, unique, regenerated on every re-registration."). This avoids consuming Cloud IDs for rejected attempts.
 
-4. **Stronger protections for claimed printers**
-   - **Requirement (proposed)**: For printers with `status == CLAIMED`, any attempt to change `model_number` — even within the same model family — SHOULD either require explicit confirmation or be rejected outright.
-   - **Justification**: Rule 11: "Registration/re-registration logic must never silently overwrite or wipe out an existing owner's claim on a printer." This proposal extends the protection beyond different-family changes to all model-number changes for claimed printers.
+3. **Structured logging field stability**
+   - **Requirement (proposed)**: The structured warning log for model-number changes SHOULD consistently expose `serial_number`, `old_model`, and `new_model` as discrete fields so that downstream telemetry/alerting systems can reliably query and filter on these attributes.
+   - **Justification**: Rule 14: "Registration failures should be observable (structured logging / telemetry), not silent — see BUD Section 10, \"Limited observability\" as a known platform risk." This codifies the specific field-level expectations already exercised by the tests.
 
-5. **Explicit handling of firmware-version changes**
-   - **Requirement (proposed)**: Re-registration that changes `firmware_version` while leaving `model_number` unchanged SHOULD be logged (at least at `INFO` level) with the old and new firmware versions, and MAY be subject to compatibility checks if/when business rules for firmware are defined.
-   - **Justification**: Edge case category — boundary values / repeated operations. The Jira description calls out `firmware_version` overwrites alongside `model_number`, but no business rule currently governs firmware. Logging firmware changes would improve auditability without committing to a validation policy prematurely.
+4. **Re-registration of claimed printers preserves ownership**
+   - **Requirement (proposed)**: For printers with `status == CLAIMED`, any successful re-registration (whether or not the `model_number` changes within the same family) MUST preserve `owner_user_id` and keep the status as `CLAIMED`.
+   - **Justification**: Rule 11: "Registration/re-registration logic must never silently overwrite or wipe out an existing owner's claim on a printer." GOAR-15’s tests already assert this behaviour; this requirement makes it explicit for future refactors.
 
-6. **Align error semantics for missing Authorization headers**
-   - **Requirement (proposed)**: The registration, claim, and lookup endpoints SHOULD return consistent error shapes for missing Authorization headers (e.g., always a 422 with the same `detail` structure) to make client handling more predictable.
-   - **Justification**: Edge case category — auth failures. While this behavior is partly implemented and tested, codifying it as a requirement ensures future changes do not introduce inconsistent error handling.
-
-7. **Document `_model_family()` as a temporary heuristic**
-   - **Requirement (proposed)**: The product documentation SHOULD explicitly state that `_model_family()` is a temporary, heuristic-based implementation and that a future enhancement will replace it with a catalog-driven model-family definition.
-   - **Justification**: Edge case category — boundary value / classification. This sets expectations for QA and stakeholders about potential classification inaccuracies in rare or edge-case model numbers.
+5. **No model-family enforcement after deregistration (clarification needed)**
+   - **Requirement (proposed)**: After a printer is fully deregistered per Rule 12/13, re-registration MAY treat the new registration as a fresh device without enforcing historical model-family continuity, provided business owners confirm this is acceptable.
+   - **Justification**: Edge case category — post-deregistration state, grounded in Rules 12 and 13 (deregistration and re-registration semantics). This is a proposal contingent on business clarification rather than an immediate mandate.
 
 ## 6. Flagged Conflicts
 
 1. **AC2 vs. implementation on "requires explicit confirmation"**
-   - AC2 allows for re-registration with a materially different model family to be "rejected or [to] require explicit confirmation." The implementation always rejects such re-registrations and does not offer an explicit confirmation path. There is no direct business rule mandating confirmation, but the AC text suggests an alternate acceptable behavior that is not implemented. This is a scope conflict between the literal AC wording and the current implementation.
+   - AC2 allows for re-registration with a materially different model family to be "rejected or [to] require explicit confirmation." The implementation always rejects such re-registrations and does not offer an explicit confirmation path. There is no business rule requiring confirmation, but the AC text suggests an alternate acceptable behaviour that is not implemented. This is a scope tension between the literal AC wording and the current implementation; it should be clarified whether "requires explicit confirmation" was intended as a future enhancement or an in-scope option.
 
-2. **Rule 3/6 vs. potential Cloud ID generation timing**
-   - Rule 3/6 requires a new Cloud ID on every successful re-registration, but does not explicitly forbid generating a Cloud ID before all checks pass. The current implementation generates a Cloud ID before capability capture and welcome-page printing; GOAR-15’s model-family gate occurs before Cloud ID generation. There is no explicit conflict as implemented, but if Cloud ID generation were moved earlier in future refactors, it could conflict with Rule 2’s requirement to avoid retaining partial data on failure.
-
-If these conflicts are resolved in future tickets (e.g., by adding a confirmation flow or clarifying Cloud ID generation timing), this section should be updated accordingly.
+2. **Deregistration semantics vs. model-family checks**
+   - Rule 13 states: "Re-registration after deregistration always generates a new Cloud ID (per rule 3/6)." Neither the ticket nor the implementation describes whether model-family continuity should still be enforced after deregistration. If business owners expect deregistration to "reset" identity checks, the current model-family gate might be stricter than intended in those scenarios; if they expect spoofing checks to persist, then the current behaviour aligns with that stance. This potential conflict cannot be resolved from available inputs.
 
 ## 7. Open Questions
 
 1. **Firmware validation scope for GOAR-15**
    - **Question**: Should GOAR-15 include any validation or logging specific to `firmware_version` changes, or are firmware semantics intentionally left undefined for this ticket?
-   - **Why unresolved**: `docs/business_rules.md` does not mention firmware behavior, and the current implementation accepts any firmware string.
-   - **Downstream exclusion**: Test-generation and scoring agents must not assume any firmware validation beyond the existing implementation.
+   - **Why it is unresolvable from available inputs**: `docs/business_rules.md` does not mention firmware behaviour, and the current implementation accepts any firmware string while the Jira description notes firmware overwrites as part of the problem statement.
+   - **Downstream agents to exclude from scoring**: Scenario design, test generation, and scoring agents must not assume any firmware validation beyond what is currently implemented.
 
 2. **Explicit confirmation flow for different-family re-registrations**
-   - **Question**: Is an explicit confirmation mechanism for materially different model families planned, or is outright rejection deemed sufficient to meet AC2?
-   - **Why unresolved**: The Jira ticket mentions "requires explicit confirmation" as an alternative, but neither the code nor business rules describe such a flow.
-   - **Downstream exclusion**: Scenario-design, test-generation, and scoring agents must exclude any assumptions about confirmation flows from scoring.
+   - **Question**: Is an explicit confirmation mechanism for materially different model families required for GOAR-15, or is outright rejection deemed sufficient to satisfy AC2?
+   - **Why it is unresolvable from available inputs**: The Jira ticket mentions "requires explicit confirmation" as an alternative outcome, but neither the code nor the business rules describe such a flow.
+   - **Downstream agents to exclude from scoring**: Scenario design, test generation, and scoring agents must exclude any assumptions about confirmation flows or UI prompts related to GOAR-15.
 
 3. **Model-family semantics after deregistration**
-   - **Question**: After a printer is deregistered (per Rule 12/13), does the system still treat re-registration with a different model family as suspicious, or is the previous model-family information considered obsolete?
-   - **Why unresolved**: There is no business rule text connecting deregistration with model-family expectations.
-   - **Downstream exclusion**: Agents focused on scenario design, execution, and scoring must not rely on any specific behavior for re-registration after deregistration in the context of GOAR-15.
+   - **Question**: After a printer is deregistered, should a subsequent registration with the same serial but different model family be treated as suspicious (subject to GOAR-15 checks) or as a new device with no historical constraints?
+   - **Why it is unresolvable from available inputs**: Rules 12 and 13 define deregistration and re-registration Cloud ID behaviour but are silent on model-family continuity, and the Jira ticket does not discuss post-deregistration cases.
+   - **Downstream agents to exclude from scoring**: Agents dealing with scenario coverage and scoring for post-deregistration flows must not treat any particular behaviour as mandated by GOAR-15.
 
 4. **Scope of structured logging beyond GOAR-15-specific events**
-   - **Question**: Should structured logging be expanded to other registration failures (e.g., capability capture failure, XMPP assignment failure, welcome-page print failure), or is GOAR-15’s logging change intended to be limited to model-number change events?
-   - **Why unresolved**: Rule 14 is broad; GOAR-15 addresses a specific class of events but does not establish a general policy for all failures.
-   - **Downstream exclusion**: Downstream agents must not treat the absence of structured logs for unrelated failure paths as a GOAR-15 defect.
+   - **Question**: Should structured logging be expanded to all registration failures (e.g., capability-capture failures, XMPP assignment failures, welcome-page print failures), or is GOAR-15’s change intended to apply only to model-number-change events?
+   - **Why it is unresolvable from available inputs**: Rule 14 is broad, but the Jira ticket only explicitly addresses observability for model-number changes and spoofing attempts.
+   - **Downstream agents to exclude from scoring**: Downstream agents must not mark the absence of structured logs for unrelated failure paths as a GOAR-15 defect.
 
 5. **Future replacement of `_model_family()` with an authoritative catalog**
-   - **Question**: When a catalog-based model-family definition is introduced, how should discrepancies between catalog and heuristic classifications be handled for existing data?
-   - **Why unresolved**: Neither the Jira ticket nor business rules discuss migration or catalog behavior.
-   - **Downstream exclusion**: Migration behavior is out of scope; downstream agents must restrict their assumptions to the current heuristic.
+   - **Question**: When a catalog-based model-family definition is introduced, how should discrepancies between existing heuristic classifications and the catalog be handled, especially for historical records flagged under GOAR-15?
+   - **Why it is unresolvable from available inputs**: Neither the Jira ticket nor the business rules discuss catalog introduction, migration, or retroactive reclassification.
+   - **Downstream agents to exclude from scoring**: Any migration or reclassification behaviour is out of scope for GOAR-15; agents must focus on the current heuristic implementation.
