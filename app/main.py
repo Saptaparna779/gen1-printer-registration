@@ -4,17 +4,32 @@ Run with:
     uvicorn app.main:app --reload --port 8000
 Docs available at http://localhost:8000/docs
 """
-from fastapi import FastAPI, HTTPException
+import logging
+
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from app import registration
+
+from app import registration, qa
 from app.registration import RegistrationError, InvalidClaimCodeError
 from app.auth import create_access_token, verify_token
-from fastapi import Depends
-import logging
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GEN 1 Printer Onboarding & Registration (Demo)")
+
+# Allows the browser-based console to call this API.
+# Fine for local demo use; narrow allow_origins before deploying anywhere shared.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# QA workflow endpoints: /qa/trigger, /qa/status, /qa/artifact, /qa/runs, /qa/config
+app.include_router(qa.router)
 
 
 @app.get("/health")
@@ -59,7 +74,7 @@ def register_printer(req: RegisterRequest, user_id: str = Depends(verify_token))
             firmware_version=req.firmware_version,
             simulate_welcome_page_failure=req.simulate_welcome_page_failure,
         )
-        except RegistrationError as exc:
+    except RegistrationError as exc:
         logger.error(
             "Registration failed for serial_number=%s: %s", req.serial_number, exc
         )
@@ -95,6 +110,7 @@ def claim_printer(req: ClaimRequest, user_id: str = Depends(verify_token)):
 @app.get("/printers/{printer_id}")
 def get_printer(printer_id: str, user_id: str = Depends(verify_token)):
     from app import store
+
     printer = store.get_printer(printer_id)
     if printer is None:
         raise HTTPException(status_code=404, detail="Printer not found")
@@ -115,10 +131,6 @@ def deregister_printer(printer_id: str, user_id: str = Depends(verify_token)):
     try:
         registration.deregister_printer(printer_id)
     except RegistrationError as exc:
-        logger.error(
-            "Deregistration failed for printer_id=%s: %s", printer_id, exc
-        )
+        logger.error("Deregistration failed for printer_id=%s: %s", printer_id, exc)
         raise HTTPException(status_code=404, detail="Printer not found.")
     return {"status": "DEREGISTERED", "printer_id": printer_id}
-
-
