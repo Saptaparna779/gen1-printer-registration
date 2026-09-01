@@ -62,9 +62,9 @@ How it applies:
 
 - "When Welcome Page printing fails, no printer record remains."
 - "When Welcome Page printing fails, no capability record remains for that
- printer_id."
+printer_id."
 - "When Welcome Page printing fails, the serial number is free to be
- registered again from scratch."
+registered again from scratch."
 - "Successful registrations are unaffected (do not regress)."
 
 ## 5. Proposed Additional Requirements [PROPOSED -- NOT IN ORIGINAL TICKET]
