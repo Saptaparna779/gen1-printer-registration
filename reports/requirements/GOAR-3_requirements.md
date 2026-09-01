@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-Re-registering a printer with the same serial number after events such as a factory reset was incorrectly reusing the existing Cloud ID instead of generating a new one. This violated the GEN 1 business rule that every re-registration must receive a fresh Cloud ID and caused stale identifiers in downstream billing/subscription systems that key off Cloud ID. The implementation now ensures that every successful registration call, whether first-time or re-registration (including after deregistration), always assigns a brand-new Cloud ID while preserving other identity, ownership, and rollback behaviours defined in the business rules. GOAR-3 adds end-to-end BDD-style tests to validate this behaviour through the public HTTP API.
+Re-registering a printer with the same serial number after events such as a factory reset was incorrectly reusing the existing Cloud ID instead of generating a new one. This violated the GEN 1 business rule that every re-registration must receive a fresh Cloud ID and caused stale identifiers in downstream billing/subscription systems that key off Cloud ID. The implementation ensures that every successful registration call, whether first-time or re-registration (including after deregistration), always assigns a brand-new Cloud ID while preserving other identity, ownership, and rollback behaviours defined in the business rules. GOAR-3 also introduces end-to-end BDD-style tests that validate Cloud ID, Printer Email ID, Claim Code, ownership preservation, rollback, and post-deregistration behaviour through the public HTTP API.
 
 ## 2. Affected Components
 
@@ -27,69 +27,74 @@ Re-registering a printer with the same serial number after events such as a fact
   - Uses POST /printers/register, POST /printers/claim, GET /printers/{printer_id}, and DELETE /printers/{printer_id} to validate the behaviours described in tests/features/GOAR-3.feature.
   - All steps run with a valid auth token provided by the shared client fixture; no unauthenticated or invalid-JWT scenarios are introduced by this ticket.
 
-Note on diff vs implementation: reports/GOAR-3_diff.txt shows only new test files (feature and step definitions). The core Cloud ID behaviour fix is present as inline GOAR-3-commented logic in app/registration.py and is not part of this diff. There is no discrepancy between the tests and the implementation regarding Cloud ID regeneration; the tests align with the existing register_printer() behaviour.
+- reports/GOAR-3_diff.txt — QA diff context.
+  - Shows only new test files (feature and step definitions) added for GOAR-3; the Cloud ID fix itself appears as an inline GOAR-3-commented change already present in app/registration.py and is not part of this diff.
+
+Note on diff vs implementation: The diff file for GOAR-3 shows only test additions, while the implementation of the Cloud ID fix is present in app/registration.py as the GOAR-3-commented Cloud ID assignment. There is no behavioural discrepancy between the tests and the implementation regarding Cloud ID regeneration, but the diff alone is not a complete representation of the GOAR-3 code change history.
 
 ## 3. Applicable Business Rules
 
-1. Rule 3 — Registration / Cloud ID behaviour
-   - Exact sentence: "Re-registering a printer (same serial number) **always generates a new Cloud ID** — the old identity is not reused."
-   - Applicability: Directly governs the bug described in the ticket and the required behaviour of register_printer() on re-registration with the same serial_number.
+1. Rule 3 — Registration / Cloud ID behaviour  
+   Exact sentence: "Re-registering a printer (same serial number) **always generates a new\n   Cloud ID** — the old identity is not reused."  
+   Applicability: Directly governs the bug described in the ticket and the required behaviour of register_printer() on re-registration with the same serial_number. The GOAR-3 change in app/registration.py enforces this by unconditionally generating a new Cloud ID on every registration call.
 
-2. Rule 6 — Cloud ID semantics
-   - Exact sentence: "Cloud ID: system-generated, unique, regenerated on every re-registration."
-   - Applicability: Defines Cloud ID properties and explicitly requires regeneration for every re-registration. The GOAR-3 logic in register_printer() (always calling _generate_cloud_id()) enforces this.
+2. Rule 6 — Cloud ID semantics  
+   Exact sentence: "Cloud ID: system-generated, unique, regenerated on every\n   re-registration."  
+   Applicability: Defines Cloud ID properties and explicitly requires regeneration for every re-registration. The unconditional call to _generate_cloud_id() in register_printer() aligns with this requirement, and the BDD tests confirm that Cloud IDs differ between successive registrations and re-registrations.
 
-3. Rule 7 — Printer Email ID uniqueness
-   - Exact sentence: "Printer Email ID: must be globally unique; used for Email-to-Print."
-   - Applicability: Supports the acceptance criterion that Printer Email ID regeneration on re-registration must remain correct and unaffected by the Cloud ID fix. The implementation’s _generate_printer_email_id() loop ensures a unique email is chosen before assignment.
+3. Rule 7 — Printer Email ID uniqueness  
+   Exact sentence: "Printer Email ID: must be globally unique; used for Email-to-Print."  
+   Applicability: Supports the acceptance criterion that Printer Email ID regeneration on re-registration must remain correct and unaffected by the Cloud ID fix. The implementation’s _generate_printer_email_id() loop ensures a unique email is chosen before assignment, and the GOAR-3 tests validate that Printer Email IDs change and match the expected format on re-registration.
 
-4. Rule 8 — Claim Code semantics
-   - Exact sentence: "Claim Code: a **temporary** security token printed on the Welcome Page.\n   - Expired or invalid claim codes must be rejected.\n   - A claim code can only be used once."
-   - Applicability: Governs Claim Code behaviour. GOAR-3 must not regress Claim Code generation, one-time use, or rejection semantics when changing Cloud ID behaviour.
+4. Rule 8 — Claim Code semantics  
+   Exact sentence: "Claim Code: a **temporary** security token printed on the Welcome Page.\n   - Expired or invalid claim codes must be rejected.\n   - A claim code can only be used once."  
+   Applicability: Governs Claim Code behaviour. GOAR-3 must not regress Claim Code generation, one-time use, or rejection semantics when changing Cloud ID behaviour. The tests verify that Claim Codes are regenerated on re-registration and conform to the expected format, while claim_printer() in app/registration.py enforces one-time and expiry semantics.
 
-5. Rule 11 — Claiming & Ownership guarantees
-   - Exact sentence: "Registration/re-registration logic must never silently overwrite or wipe out an existing owner's claim on a printer."
-   - Applicability: Governs behaviour when re-registering already-claimed printers, ensuring that owner_user_id and claimed status are preserved even as Cloud IDs change.
+5. Rule 11 — Claiming & Ownership guarantees  
+   Exact sentence: "Registration/re-registration logic must never silently overwrite or\n   wipe out an existing owner's claim on a printer."  
+   Applicability: Governs behaviour when re-registering already-claimed printers, ensuring that owner_user_id and claimed status are preserved even as Cloud IDs change. GOAR-3 tests explicitly cover re-registration of claimed printers and verify that ownership and claimed status remain intact after re-registration.
 
-6. Rule 2 — Registration rollback
-   - Exact sentence: "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained."
-   - Applicability: Governs rollback when Welcome Page printing fails (including simulated failures in tests), ensuring that no stale Cloud IDs, printer records, or indexes remain after a failed registration or re-registration attempt.
+6. Rule 2 — Registration rollback  
+   Exact sentence: "If any step fails **before** the Welcome Page prints, the entire\n   registration must roll back — no partial data (printer record,\n   capability record, serial index, etc.) may be retained."  
+   Applicability: Governs rollback when Welcome Page printing fails (including simulated failures in tests), ensuring that no stale Cloud IDs, printer records, or indexes remain after a failed registration or re-registration attempt. GOAR-3 introduces scenarios that simulate Welcome Page failures and assert that the printer record and indexes are fully removed.
 
-7. Rule 13 — Re-registration after deregistration
-   - Exact sentence: "Re-registration after deregistration always generates a new Cloud ID (per rule 3/6)."
-   - Applicability: Extends the Cloud ID regeneration requirement to the deregister-then-re-register path, which is explicitly covered by GOAR-3’s test scenarios.
+7. Rule 13 — Re-registration after deregistration  
+   Exact sentence: "Re-registration after deregistration always generates a new Cloud ID\n   (per rule 3/6)."  
+   Applicability: Extends the Cloud ID regeneration requirement to the deregister-then-re-register path, which is explicitly covered by GOAR-3’s test scenarios that deregister a printer and then re-register it, asserting that the new Cloud ID differs from the original.
 
-8. Rule 14 — Observability of failures
-   - Exact sentence: "Registration failures should be observable (structured logging / telemetry), not silent — see BUD Section 10, \"Limited observability\" as a known platform risk."
-   - Applicability: Relevant to the handling of RegistrationError in app/main.py for POST /printers/register and to any telemetry around failed registrations/re-registrations, including simulated Welcome Page failures in tests.
+8. Rule 14 — Observability of failures  
+   Exact sentence: "Registration failures should be observable (structured logging /\n   telemetry), not silent — see BUD Section 10, \"Limited observability\"\n   as a known platform risk."  
+   Applicability: Relevant to the handling of RegistrationError in app/main.py for POST /printers/register and to any telemetry around failed registrations/re-registrations, including simulated Welcome Page failures in tests. app/main.py logs registration failures with serial_number context and returns a 422 error response, satisfying the requirement for observable failures.
 
 ## 4. Original Acceptance Criteria
 
 Verbatim from jira_context/GOAR-3_live.md:
 
-1. "Every call to register a printer -- first-time or re-registration -- generates a brand new Cloud ID."
+1. "Every call to register a printer -- first-time or re-registration --
+   generates a brand new Cloud ID."
 
-2. "Printer Email ID and Claim Code continue to be regenerated on re-registration (unaffected, do not regress)."
+2. "Printer Email ID and Claim Code continue to be regenerated on
+   re-registration (unaffected, do not regress)."
 
 ## 5. Proposed Additional Requirements [PROPOSED -- NOT IN ORIGINAL TICKET]
 
 1. Re-registration of a printer that is currently in status "CLAIMED" must issue a new Cloud ID while preserving the printer's status and owner_user_id.
-   - Justification: Rule 11 — "Registration/re-registration logic must never silently overwrite or wipe out an existing owner's claim on a printer." Edge case category: ownership conflicts (re-registration of claimed printers).
+   - Justification: Rule 11 — "Registration/re-registration logic must never silently overwrite or\n     wipe out an existing owner's claim on a printer." Edge case category: ownership conflicts (re-registration of claimed printers).
 
 2. Two consecutive re-registrations of the same serial number must result in three distinct Cloud IDs overall (initial registration + first re-registration + second re-registration), not merely a Cloud ID different from the immediately preceding one.
-   - Justification: Rule 6 — "Cloud ID: system-generated, unique, regenerated on every re-registration." Edge case category: boundary values / repeated operations.
+   - Justification: Rule 6 — "Cloud ID: system-generated, unique, regenerated on every\n     re-registration." Edge case category: boundary values / repeated operations.
 
 3. If a re-registration attempt fails before the Welcome Page prints and triggers rollback, the Cloud ID generated during that failed attempt must not be retained or reused, and any subsequent successful registration for the same serial number must still generate a fresh Cloud ID.
-   - Justification: Rule 2 — "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained." Edge case category: rollback/partial-failure behaviour.
+   - Justification: Rule 2 — "If any step fails **before** the Welcome Page prints, the entire\n     registration must roll back — no partial data (printer record,\n     capability record, serial index, etc.) may be retained." Edge case category: rollback/partial-failure behaviour.
 
 4. Re-registration after a prior deregistration of the same serial number must generate a new Cloud ID, distinct from any Cloud ID previously associated with that serial number.
-   - Justification: Rule 13 — "Re-registration after deregistration always generates a new Cloud ID (per rule 3/6)." Edge case category: post-deregistration state.
+   - Justification: Rule 13 — "Re-registration after deregistration always generates a new Cloud ID\n     (per rule 3/6)." Edge case category: post-deregistration state.
 
 5. A failed re-registration attempt that is rolled back due to a Welcome Page print error must fully remove the printer record and all indexes (printer_id, serial index, and email index), so that a subsequent registration behaves as a fresh registration.
-   - Justification: Rule 2 — "If any step fails **before** the Welcome Page prints, the entire registration must roll back — no partial data (printer record, capability record, serial index, etc.) may be retained." Edge case category: rollback/partial-failure behaviour.
+   - Justification: Rule 2 — "If any step fails **before** the Welcome Page prints, the entire\n     registration must roll back — no partial data (printer record,\n     capability record, serial index, etc.) may be retained." Edge case category: rollback/partial-failure behaviour.
 
 6. All registration and re-registration failures, including those due to Welcome Page print errors and model-family mismatches, must emit structured logs that include at minimum the serial_number, printer_id (if available), and a machine-parseable failure reason.
-   - Justification: Rule 14 — "Registration failures should be observable (structured logging / telemetry), not silent — see BUD Section 10, \"Limited observability\" as a known platform risk." Edge case category: repeated operations / auditability.
+   - Justification: Rule 14 — "Registration failures should be observable (structured logging /\n     telemetry), not silent — see BUD Section 10, \"Limited observability\"\n     as a known platform risk." Edge case category: auditability / observability.
 
 ## 6. Flagged Conflicts
 
@@ -111,7 +116,7 @@ None identified. The original acceptance criteria are consistent with the cited 
    - Downstream exclusion: Agents responsible for cross-service integration tests and end-to-end subscription/billing flows must exclude assumptions about old Cloud ID handling from scoring.
 
 3. For printers that have been deregistered and then re-registered, should any historical linkage between the old and new Cloud IDs be retained for audit or analytics purposes, or must all such links be removed to satisfy GDPR and related data-minimization principles?
-   - Why unresolvable: Rule 12 requires removal of all cloud associations and printer data on deregistration, which may imply that historical linkages should also be removed, but it does not explicitly mention analytical or audit archives. The Jira ticket and current implementation do not cover this.
+   - Why unresolvable: Rule 12 ("Deregistration must remove all cloud associations and printer data (GDPR compliance).") implies that operational data must be removed, but it does not explicitly mention analytical or audit archives. The Jira ticket and current implementation do not cover this.
    - Downstream exclusion: Compliance/audit-focused agents and any analytics-related test generation must not assume a particular historical-link behaviour when scoring.
 
 4. How should concurrent or near-simultaneous re-registration requests for the same serial_number be handled, and what guarantees (if any) are required about the uniqueness and ordering of Cloud IDs in such race conditions?
@@ -121,4 +126,3 @@ None identified. The original acceptance criteria are consistent with the cited 
 5. Should a failed registration or re-registration attempt that is rolled back log a distinct error code or structured field indicating that the failure was due to a Welcome Page print error, versus other types of registration failures?
    - Why unresolvable: Rule 14 ("Registration failures should be observable (structured logging / telemetry), not silent") requires observability but does not prescribe specific log schemas or error codes. The Jira ticket and current implementation include logging but do not define a standard schema for differentiating failure causes.
    - Downstream exclusion: Logging/observability scoring agents must not assume specific log field names or error codes for Welcome Page failures when scoring.
-
