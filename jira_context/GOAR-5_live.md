@@ -34,3 +34,4 @@ linkage.
 ## Comments
 - **Saptaparna Dasgupta:** QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/GOAR-5_diff.txt and jira_context/GOAR-5_live.md).
 - **Saptaparna Dasgupta:** QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/GOAR-5_diff.txt and jira_context/GOAR-5_live.md).
+- **Saptaparna Dasgupta:** QA prep is ready. Pull the latest changes, open VS Code, and run the Copilot Agent validation for this ticket (see reports/GOAR-5_diff.txt and jira_context/GOAR-5_live.md).
