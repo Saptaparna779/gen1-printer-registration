@@ -21,6 +21,9 @@ import json
 import os
 import uuid
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 AAVA_BASE_URL = "https://int-ai.aava.ai"
 GITHUB_REPO   = "https://github.com/Saptaparna779/gen1-printer-registration"
@@ -80,7 +83,7 @@ def submit_workflow(ticket_id, github_pat, jira_pat, aava_token, user_email):
 def run_pipeline(ticket_id: str):
     aava_token = os.environ.get("AAVA_API_TOKEN")
     github_pat = os.environ.get("GH_PAT")
-    jira_pat   = os.environ.get("JIRA_PAT")
+    jira_pat   = os.environ.get("JIRA_PAT") or os.environ.get("JIRA_API_TOKEN")
     user_email = os.environ.get("AAVA_USER_EMAIL", "saptaparna700@gmail.com")
 
     missing = [n for n, v in [("AAVA_API_TOKEN", aava_token), ("GH_PAT", github_pat), ("JIRA_PAT", jira_pat)] if not v]

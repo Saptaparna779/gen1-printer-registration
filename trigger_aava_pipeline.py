@@ -23,6 +23,9 @@ import time
 import json
 import os
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 
@@ -170,7 +173,7 @@ def run_pipeline(ticket_id: str):
     """
     aava_token = os.environ.get("AAVA_API_TOKEN")
     github_pat = os.environ.get("GH_PAT")
-    jira_pat   = os.environ.get("JIRA_PAT")
+    jira_pat   = os.environ.get("JIRA_PAT") or os.environ.get("JIRA_API_TOKEN")
 
     missing_secrets = []
     if not aava_token: missing_secrets.append("AAVA_API_TOKEN")
