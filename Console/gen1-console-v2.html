@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GEN 1 Printer Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FBFAF7;
+  --card:#FFFFFF;
+  --ink:#16233F;
+  --graphite:#606B80;
+  --rule:#DFE0DA;
+  --cyan:#0B7FB8;
+  --cyan-soft:#E4F2F9;
+  --magenta:#B31F6E;
+  --magenta-soft:#FAE7F1;
+  --amber:#9A6205;
+  --amber-soft:#FBF0DC;
+  --green:#1D7A4C;
+  --green-soft:#E2F2E9;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+a{color:var(--cyan)}
+
+/* ---------- top bar ---------- */
+.topbar{
+  border-bottom:1px solid var(--rule);
+  background:var(--card);
+  position:sticky;top:0;z-index:20;
+}
+.topbar-inner{
+  max-width:1240px;margin:0 auto;padding:14px 24px;
+  display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand h1{font-size:17px;font-weight:600;margin:0;letter-spacing:-0.01em}
+.brand span{font-size:13px;color:var(--graphite)}
+.field-inline{display:flex;align-items:center;gap:8px}
+.field-inline label{font-size:13px;color:var(--graphite)}
+.field-inline input{
+  border:1px solid var(--rule);border-radius:5px;padding:6px 9px;
+  font-family:var(--mono);font-size:13px;background:var(--paper);width:220px;
+}
+.field-inline input:focus{outline:2px solid var(--cyan);outline-offset:-1px;background:#fff}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:12.5px;font-weight:500;padding:5px 10px;border-radius:999px;
+  border:1px solid var(--rule);background:var(--paper);color:var(--graphite);
+}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:var(--graphite)}
+.pill.good{background:var(--green-soft);border-color:transparent;color:var(--green)}
+.pill.good .dot{background:var(--green)}
+.pill.bad{background:var(--magenta-soft);border-color:transparent;color:var(--magenta)}
+.pill.bad .dot{background:var(--magenta)}
+
+/* ---------- layout ---------- */
+.wrap{max-width:1240px;margin:0 auto;padding:24px;display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:24px;align-items:start}
+.panel{background:var(--card);border:1px solid var(--rule);border-radius:8px}
+.panel-head{padding:14px 18px;border-bottom:1px solid var(--rule);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.panel-head h2{margin:0;font-size:14px;font-weight:600}
+.panel-body{padding:18px}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;border-bottom:1px solid var(--rule);overflow-x:auto}
+.tab{
+  appearance:none;background:none;border:none;cursor:pointer;
+  padding:13px 15px;font-size:13.5px;font-weight:500;color:var(--graphite);
+  border-bottom:2px solid transparent;white-space:nowrap;
+}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--cyan);border-bottom-color:var(--cyan)}
+.tab:focus-visible{outline:2px solid var(--cyan);outline-offset:-2px}
+
+/* ---------- forms ---------- */
+.form-row{margin-bottom:14px}
+.form-row label{display:block;font-size:13px;font-weight:500;margin-bottom:5px}
+.form-row .help{font-size:12.5px;color:var(--graphite);margin-top:5px;line-height:1.45}
+.form-row input[type=text]{
+  width:100%;border:1px solid var(--rule);border-radius:6px;padding:9px 11px;
+  font-family:var(--mono);font-size:13.5px;background:var(--paper);
+}
+.form-row input[type=text]:focus{outline:2px solid var(--cyan);outline-offset:-1px;background:#fff}
+.check{display:flex;gap:9px;align-items:flex-start;padding:11px 12px;border:1px solid var(--rule);border-radius:6px;background:var(--amber-soft);border-color:#EFDFC0}
+.check input{margin-top:3px}
+.check label{font-size:13px;font-weight:500;margin:0}
+.check .help{margin-top:2px}
+.actions{display:flex;gap:9px;align-items:center;margin-top:18px;flex-wrap:wrap}
+.btn{
+  appearance:none;border:1px solid var(--rule);background:var(--card);
+  border-radius:6px;padding:9px 15px;font-size:13.5px;font-weight:500;cursor:pointer;
+}
+.btn:hover{border-color:var(--graphite)}
+.btn:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--cyan);border-color:var(--cyan);color:#fff}
+.btn-primary:hover{background:#0a6d9e;border-color:#0a6d9e}
+.btn-danger{background:var(--card);border-color:#E4BDD3;color:var(--magenta)}
+.btn-danger:hover{background:var(--magenta-soft);border-color:var(--magenta)}
+.btn-sm{padding:5px 10px;font-size:12.5px}
+.btn-link{border:none;background:none;color:var(--cyan);padding:0;text-decoration:underline;cursor:pointer;font-size:12.5px}
+
+/* ---------- lifecycle rail ---------- */
+.rail{display:flex;align-items:center;gap:0;margin:2px 0 20px}
+.rail-step{flex:1;text-align:center;position:relative;padding-top:20px;font-size:12px;color:var(--graphite);font-weight:500}
+.rail-step::before{
+  content:"";position:absolute;top:4px;left:50%;transform:translateX(-50%);
+  width:11px;height:11px;border-radius:50%;background:var(--card);border:2px solid var(--rule);z-index:2;
+}
+.rail-step::after{content:"";position:absolute;top:9px;left:-50%;width:100%;height:2px;background:var(--rule);z-index:1}
+.rail-step:first-child::after{display:none}
+.rail-step.done{color:var(--ink)}
+.rail-step.done::before{background:var(--cyan);border-color:var(--cyan)}
+.rail-step.done::after{background:var(--cyan)}
+.rail-step.now{color:var(--cyan);font-weight:600}
+.rail-step.now::before{box-shadow:0 0 0 4px var(--cyan-soft)}
+.rail-step.void::before{background:var(--magenta);border-color:var(--magenta)}
+.rail-step.void{color:var(--magenta)}
+
+/* ---------- record ---------- */
+.empty{padding:44px 24px;text-align:center;color:var(--graphite);font-size:14px}
+.empty strong{display:block;color:var(--ink);font-size:15px;font-weight:600;margin-bottom:6px}
+.kv{display:grid;grid-template-columns:150px minmax(0,1fr);gap:0;border-top:1px solid var(--rule)}
+.kv dt{padding:9px 0;font-size:13px;color:var(--graphite);border-bottom:1px solid var(--rule)}
+.kv dd{padding:9px 0;margin:0;font-family:var(--mono);font-size:13px;border-bottom:1px solid var(--rule);word-break:break-all;display:flex;align-items:center;gap:8px}
+.copy{opacity:0;border:none;background:none;cursor:pointer;color:var(--graphite);font-size:11.5px;font-family:var(--sans);text-decoration:underline;flex-shrink:0}
+.kv dd:hover .copy,.copy:focus{opacity:1}
+
+.claimstrip{
+  border:1px dashed var(--rule);border-radius:8px;padding:14px 16px;margin-bottom:18px;
+  background:var(--paper);display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+}
+.claimstrip .code{font-family:var(--mono);font-size:26px;font-weight:600;letter-spacing:0.13em}
+.claimstrip .meta{font-size:12.5px;color:var(--graphite);margin-left:auto;text-align:right}
+.claimstrip .ttl{font-family:var(--mono);font-weight:600;color:var(--ink)}
+.claimstrip.expired .code{color:var(--graphite);text-decoration:line-through}
+.claimstrip.expired .ttl{color:var(--magenta)}
+
+.status-badge{font-size:12px;font-weight:600;padding:3px 9px;border-radius:4px;background:var(--cyan-soft);color:var(--cyan)}
+.status-badge.claimed{background:var(--green-soft);color:var(--green)}
+.status-badge.gone{background:var(--magenta-soft);color:var(--magenta)}
+
+.history{list-style:none;margin:18px 0 0;padding:0}
+.history li{display:flex;gap:12px;padding:7px 0;font-size:13px;border-bottom:1px solid var(--rule)}
+.history li:last-child{border-bottom:none}
+.history time{font-family:var(--mono);font-size:12px;color:var(--graphite);flex-shrink:0;width:74px}
+
+/* ---------- printer switcher ---------- */
+.switcher{display:flex;gap:6px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--rule);background:var(--paper)}
+.chip{
+  border:1px solid var(--rule);background:var(--card);border-radius:5px;
+  padding:5px 10px;font-size:12.5px;font-family:var(--mono);cursor:pointer;
+}
+.chip[aria-pressed="true"]{border-color:var(--cyan);background:var(--cyan-soft);color:var(--cyan);font-weight:600}
+
+/* ---------- log ---------- */
+.log{list-style:none;margin:0;padding:0;max-height:420px;overflow-y:auto}
+.log li{border-bottom:1px solid var(--rule)}
+.log-head{
+  width:100%;display:flex;align-items:center;gap:11px;padding:11px 18px;
+  background:none;border:none;text-align:left;cursor:pointer;font-size:13px;
+}
+.log-head:hover{background:var(--paper)}
+.verb{font-family:var(--mono);font-size:11.5px;font-weight:600;width:52px;flex-shrink:0;color:var(--graphite)}
+.path{font-family:var(--mono);font-size:12.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.code-badge{font-family:var(--mono);font-size:12px;font-weight:600;padding:2px 7px;border-radius:4px;flex-shrink:0}
+.code-2xx{background:var(--green-soft);color:var(--green)}
+.code-4xx{background:var(--amber-soft);color:var(--amber)}
+.code-5xx,.code-err{background:var(--magenta-soft);color:var(--magenta)}
+.dur{font-size:11.5px;color:var(--graphite);font-family:var(--mono);flex-shrink:0;width:52px;text-align:right}
+pre{
+  margin:0;padding:14px 18px;background:var(--paper);border-top:1px solid var(--rule);
+  font-family:var(--mono);font-size:12.5px;line-height:1.55;overflow-x:auto;white-space:pre-wrap;word-break:break-word;
+}
+.toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:10px 18px;border-radius:6px;font-size:13.5px;
+  z-index:60;box-shadow:0 6px 20px rgba(22,35,63,.22);
+}
+@media (prefers-reduced-motion:no-preference){
+  .toast{animation:rise .18s ease-out}
+  @keyframes rise{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+}
+/* ---------- view nav ---------- */
+.viewnav{display:flex;gap:2px;margin-left:14px}
+.viewbtn{
+  appearance:none;border:none;background:none;cursor:pointer;
+  padding:5px 11px;border-radius:5px;font-size:13.5px;font-weight:500;color:var(--graphite);
+}
+.viewbtn:hover{background:var(--paper);color:var(--ink)}
+.viewbtn[aria-current="true"]{background:var(--cyan-soft);color:var(--cyan);font-weight:600}
+.viewbtn:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+.repo-tag{font-family:var(--mono);font-size:12px;color:var(--graphite)}
+.subhead{font-size:13px;font-weight:600;margin:26px 0 10px;padding-top:18px;border-top:1px solid var(--rule)}
+
+/* ---------- credential warning ---------- */
+.warn{
+  margin-top:16px;padding:12px 14px;border-radius:6px;font-size:13px;line-height:1.5;
+  background:var(--amber-soft);border:1px solid #EFDFC0;color:#6B4503;
+}
+.warn code{font-family:var(--mono);font-size:12.5px}
+
+/* ---------- run list ---------- */
+.runlist{list-style:none;margin:0;padding:0}
+.runlist li{border-bottom:1px solid var(--rule)}
+.runlist li:last-child{border-bottom:none}
+.runbtn{
+  width:100%;display:flex;align-items:baseline;gap:10px;padding:10px 0;
+  background:none;border:none;text-align:left;cursor:pointer;
+}
+.runbtn:hover{color:var(--cyan)}
+.runbtn[aria-pressed="true"]{font-weight:600;color:var(--cyan)}
+.runbtn .rt{font-family:var(--mono);font-size:13px}
+.runbtn .rw{font-size:12px;color:var(--graphite);margin-left:auto;font-family:var(--mono)}
+
+/* ---------- pipeline ---------- */
+.progress{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.progress-bar{flex:1;height:6px;background:var(--rule);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:var(--cyan);width:0;transition:width .4s ease}
+@media (prefers-reduced-motion:reduce){.progress-fill{transition:none}}
+.progress-num{font-family:var(--mono);font-size:12.5px;color:var(--graphite);flex-shrink:0}
+
+.stages{list-style:none;margin:0;padding:0}
+.stages li{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.stages li:last-child{border-bottom:none}
+.stage-mark{
+  width:20px;height:20px;border-radius:50%;flex-shrink:0;margin-top:1px;
+  border:2px solid var(--rule);display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:#fff;background:var(--card);
+}
+.stage-mark.done{background:var(--cyan);border-color:var(--cyan)}
+.stage-mark.stale{background:var(--amber);border-color:var(--amber)}
+.stage-main{flex:1;min-width:0}
+.stage-name{font-size:14px;font-weight:500}
+.stage-path{font-family:var(--mono);font-size:12px;color:var(--graphite);margin-top:2px;word-break:break-all}
+.stage-state{font-size:12px;font-weight:600;flex-shrink:0;color:var(--graphite);padding-top:2px}
+.stage-state.done{color:var(--cyan)}
+.stage-state.stale{color:var(--amber)}
+.stage-open{margin-top:6px}
+
+.ctx{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--rule)}
+.artifact-view{
+  font-family:var(--mono);font-size:12.5px;line-height:1.6;white-space:pre-wrap;
+  word-break:break-word;max-height:460px;overflow-y:auto;margin:0;
+  background:var(--paper);padding:16px;border-radius:6px;
+}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--rule);border-top-color:var(--cyan);border-radius:50%;vertical-align:-2px;margin-right:7px}
+@media (prefers-reduced-motion:no-preference){.spin{animation:sp .7s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}}
+
+@media (max-width:940px){
+  .wrap{grid-template-columns:minmax(0,1fr)}
+  .kv{grid-template-columns:1fr;}
+  .kv dt{border-bottom:none;padding-bottom:0}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <h1>GEN 1 Console</h1>
+      <nav class="viewnav">
+        <button class="viewbtn" data-view="printers" aria-current="true">Printers</button>
+        <button class="viewbtn" data-view="qa" aria-current="false">QA runs</button>
+      </nav>
+    </div>
+    <div class="field-inline">
+      <label for="baseUrl">Server</label>
+      <input id="baseUrl" type="text" value="http://localhost:8000" spellcheck="false">
+    </div>
+    <span class="pill" id="healthPill"><span class="dot"></span><span id="healthText">Not checked</span></span>
+    <span class="pill" id="tokenPill"><span class="dot"></span><span id="tokenText">No token</span></span>
+  </div>
+</header>
+
+<main class="wrap" id="viewPrinters">
+
+  <!-- ============ LEFT: actions ============ -->
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true"  data-tab="auth">Sign in</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="register">Register</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="claim">Claim</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="lookup">Look up</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="deregister">Deregister</button>
+    </div>
+    <div class="panel-body">
+
+      <!-- Sign in -->
+      <div data-pane="auth">
+        <div class="form-row">
+          <label for="userId">User ID</label>
+          <input id="userId" type="text" value="qa-tester-01" spellcheck="false">
+          <p class="help">Any user ID is accepted. The server signs a 30-minute bearer token that every other call reuses.</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="btnToken">Get token</button>
+          <button class="btn" id="btnHealth">Check server</button>
+          <button class="btn btn-link" id="btnClearToken">Clear token</button>
+        </div>
+      </div>
+
+      <!-- Register -->
+      <div data-pane="register" hidden>
+        <div class="form-row">
+          <label for="serial">Serial number</label>
+          <input id="serial" type="text" value="SN-000123" spellcheck="false">
+          <p class="help">Reuse a serial you have already registered to exercise the re-registration path.</p>
+        </div>
+        <div class="form-row">
+          <label for="model">Model number</label>
+          <input id="model" type="text" value="HP-LJ-4200" spellcheck="false">
+          <p class="help">Same family, different revision (HP-LJ-4250) is flagged. A different family (HP-C-9000) is rejected outright.</p>
+        </div>
+        <div class="form-row">
+          <label for="firmware">Firmware version</label>
+          <input id="firmware" type="text" value="1.0.4" spellcheck="false">
+        </div>
+        <div class="form-row check">
+          <input type="checkbox" id="failWelcome">
+          <div>
+            <label for="failWelcome">Make the welcome page fail</label>
+            <p class="help">Forces the print job to fail so registration rolls back. Nothing should survive — look up the printer afterwards to confirm.</p>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="btnRegister">Register printer</button>
+          <button class="btn" id="btnNewSerial">New serial</button>
+        </div>
+      </div>
+
+      <!-- Claim -->
+      <div data-pane="claim" hidden>
+        <div class="form-row">
+          <label for="claimCode">Claim code</label>
+          <input id="claimCode" type="text" placeholder="8 characters from the welcome page" spellcheck="false">
+          <p class="help" id="claimHint">Register a printer first, or type a code by hand to test a rejected one.</p>
+        </div>
+        <div class="form-row">
+          <label for="ownerId">Owner user ID</label>
+          <input id="ownerId" type="text" value="user-alice" spellcheck="false">
+          <p class="help">The account the printer gets linked to. This is separate from the signed-in tester.</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="btnClaim">Claim printer</button>
+          <button class="btn" id="btnFillCode" disabled>Use latest code</button>
+        </div>
+      </div>
+
+      <!-- Look up -->
+      <div data-pane="lookup" hidden>
+        <div class="form-row">
+          <label for="lookupId">Printer ID</label>
+          <input id="lookupId" type="text" placeholder="UUID returned by register" spellcheck="false">
+          <p class="help">A rolled-back registration returns 404 here. That is the check that no partial record was kept.</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="btnLookup">Look up printer</button>
+          <button class="btn" id="btnRefresh" disabled>Refresh selected</button>
+        </div>
+      </div>
+
+      <!-- Deregister -->
+      <div data-pane="deregister" hidden>
+        <div class="form-row">
+          <label for="deregId">Printer ID</label>
+          <input id="deregId" type="text" placeholder="UUID returned by register" spellcheck="false">
+          <p class="help">Removes the cloud identity and all stored data. Registering the same serial afterwards must produce a new Cloud ID.</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-danger" id="btnDeregister">Deregister printer</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ RIGHT: record + log ============ -->
+  <div>
+    <section class="panel" style="margin-bottom:24px">
+      <div class="panel-head">
+        <h2>Printer record</h2>
+        <span id="recordStatus"></span>
+      </div>
+      <div class="switcher" id="switcher" hidden></div>
+      <div class="panel-body" id="record">
+        <div class="empty">
+          <strong>No printer yet</strong>
+          Get a token, then register a printer to see its cloud identity here.
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Request log</h2>
+        <button class="btn btn-sm" id="btnClearLog">Clear</button>
+      </div>
+      <ul class="log" id="log"></ul>
+      <div class="empty" id="logEmpty">Every call you make shows up here with its status and response body.</div>
+    </section>
+  </div>
+
+</main>
+
+<!-- ============ QA RUNS VIEW ============ -->
+<main class="wrap" id="viewQa" hidden>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Start a run</h2>
+      <span id="repoTag" class="repo-tag"></span>
+    </div>
+    <div class="panel-body">
+      <div class="form-row">
+        <label for="ticketId">Jira ticket</label>
+        <input id="ticketId" type="text" value="GOAR-15" spellcheck="false">
+        <p class="help">The agents read this ticket, diff the fix commit, and write their output back to the repo.</p>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="btnRunQa">Run QA</button>
+        <button class="btn" id="btnCheckStatus">Check without running</button>
+      </div>
+      <div id="credWarn"></div>
+
+      <div class="subhead">Recent runs</div>
+      <ul class="runlist" id="runList"></ul>
+      <p class="help" id="runsEmpty">Runs started since the server last booted appear here.</p>
+    </div>
+  </section>
+
+  <div>
+    <section class="panel" style="margin-bottom:24px">
+      <div class="panel-head">
+        <h2>Pipeline</h2>
+        <span id="qaOverall"></span>
+      </div>
+      <div class="panel-body" id="pipeline">
+        <div class="empty">
+          <strong>No run selected</strong>
+          Enter a ticket and start a run, or check an existing one.
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 id="artifactTitle">Artifact</h2>
+        <a id="artifactLink" class="btn btn-sm" target="_blank" rel="noopener" hidden>Open on GitHub</a>
+      </div>
+      <div class="panel-body" id="artifactBody">
+        <div class="empty">Select a completed stage to read what the agent produced.</div>
+      </div>
+    </section>
+  </div>
+
+</main>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+
+const state = {
+  token: null,
+  printers: [],       // {printer_id, data, deregistered}
+  activeId: null,
+  log: [],
+  logSeq: 0,
+};
+
+/* ---------------- helpers ---------------- */
+
+function baseUrl(){ return $("baseUrl").value.trim().replace(/\/+$/,""); }
+
+function toast(msg){
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
+
+function copy(text, what){
+  navigator.clipboard.writeText(text).then(
+    () => toast((what || "Value") + " copied"),
+    () => toast("Copy failed — select it by hand")
+  );
+}
+
+function esc(s){
+  return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+
+/* ---------------- api ---------------- */
+
+async function api(method, path, body, opts){
+  opts = opts || {};
+  const started = performance.now();
+  const headers = {};
+  if (body) headers["Content-Type"] = "application/json";
+  if (opts.auth !== false && state.token) headers["Authorization"] = "Bearer " + state.token;
+
+  let res, payload, entry;
+  try {
+    res = await fetch(baseUrl() + path, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    entry = {
+      id: ++state.logSeq, method, path, status: null, ms: Math.round(performance.now() - started),
+      body: {
+        error: "Could not reach the server",
+        detail: String(err),
+        likely_cause: "The server is not running, the address is wrong, or CORS is not enabled on FastAPI."
+      }
+    };
+    pushLog(entry);
+    return { ok:false, status:0, data:entry.body };
+  }
+
+  const text = await res.text();
+  try { payload = text ? JSON.parse(text) : null; }
+  catch { payload = { raw: text }; }
+
+  entry = {
+    id: ++state.logSeq, method, path,
+    status: res.status, ms: Math.round(performance.now() - started), body: payload
+  };
+  pushLog(entry);
+  return { ok: res.ok, status: res.status, data: payload };
+}
+
+/* ---------------- log ---------------- */
+
+function pushLog(entry){
+  state.log.unshift(entry);
+  if (state.log.length > 60) state.log.pop();
+  renderLog();
+}
+
+function codeClass(status){
+  if (status === null || status === 0) return "code-err";
+  if (status < 300) return "code-2xx";
+  if (status < 500) return "code-4xx";
+  return "code-5xx";
+}
+
+function renderLog(){
+  const list = $("log");
+  $("logEmpty").hidden = state.log.length > 0;
+  list.innerHTML = state.log.map(e => `
+    <li>
+      <button class="log-head" data-log="${e.id}" aria-expanded="false">
+        <span class="verb">${esc(e.method)}</span>
+        <span class="path">${esc(e.path)}</span>
+        <span class="code-badge ${codeClass(e.status)}">${e.status === null || e.status === 0 ? "ERR" : e.status}</span>
+        <span class="dur">${e.ms} ms</span>
+      </button>
+      <pre hidden data-body="${e.id}">${esc(JSON.stringify(e.body, null, 2))}</pre>
+    </li>`).join("");
+}
+
+$("log").addEventListener("click", (ev) => {
+  const btn = ev.target.closest("[data-log]");
+  if (!btn) return;
+  const pre = document.querySelector(`[data-body="${btn.dataset.log}"]`);
+  const open = pre.hidden;
+  pre.hidden = !open;
+  btn.setAttribute("aria-expanded", String(open));
+});
+
+$("btnClearLog").addEventListener("click", () => { state.log = []; renderLog(); });
+
+/* ---------------- printers ---------------- */
+
+function upsertPrinter(data){
+  const existing = state.printers.find(p => p.printer_id === data.printer_id);
+  if (existing) {
+    existing.data = Object.assign({}, existing.data, data);
+    existing.deregistered = false;
+  } else {
+    state.printers.unshift({ printer_id: data.printer_id, data, deregistered:false });
+  }
+  state.activeId = data.printer_id;
+  renderRecord();
+}
+
+function activePrinter(){
+  return state.printers.find(p => p.printer_id === state.activeId) || null;
+}
+
+function latestClaimCode(){
+  for (const p of state.printers){
+    if (!p.deregistered && p.data.claim_code && p.data.status !== "CLAIMED") return p.data.claim_code;
+  }
+  return null;
+}
+
+function renderSwitcher(){
+  const sw = $("switcher");
+  sw.hidden = state.printers.length < 2;
+  if (sw.hidden) { sw.innerHTML = ""; return; }
+  sw.innerHTML = state.printers.map(p => `
+    <button class="chip" data-pid="${esc(p.printer_id)}" aria-pressed="${p.printer_id === state.activeId}">
+      ${esc(p.data.serial_number || p.printer_id.slice(0,8))}${p.deregistered ? " ·gone" : ""}
+    </button>`).join("");
+}
+
+$("switcher").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-pid]");
+  if (!b) return;
+  state.activeId = b.dataset.pid;
+  renderRecord();
+});
+
+const STAGES = ["PENDING","REGISTERED","CLAIMED"];
+
+function renderRail(status, deregistered){
+  if (deregistered || status === "DEREGISTERED"){
+    return `<div class="rail">
+      <div class="rail-step done">Pending</div>
+      <div class="rail-step done">Registered</div>
+      <div class="rail-step done">Claimed</div>
+      <div class="rail-step void now">Deregistered</div>
+    </div>`;
+  }
+  const idx = STAGES.indexOf(status);
+  const labels = ["Pending","Registered","Claimed","Deregistered"];
+  return `<div class="rail">` + labels.map((label, i) => {
+    let cls = "rail-step";
+    if (i < idx) cls += " done";
+    if (i === idx) cls += " done now";
+    return `<div class="${cls}">${label}</div>`;
+  }).join("") + `</div>`;
+}
+
+function renderClaimStrip(d){
+  if (!d.claim_code) return "";
+  const exp = d.claim_code_expires_at ? new Date(d.claim_code_expires_at + (d.claim_code_expires_at.endsWith("Z") ? "" : "Z")) : null;
+  return `<div class="claimstrip" id="claimstrip">
+    <span class="code">${esc(d.claim_code)}</span>
+    <button class="btn btn-sm" data-copy="${esc(d.claim_code)}" data-what="Claim code">Copy</button>
+    <span class="meta">${exp ? `Expires in <span class="ttl" id="ttl" data-exp="${exp.getTime()}">—</span>` : "No expiry returned"}</span>
+  </div>`;
+}
+
+function row(label, value, copyable){
+  if (value === undefined || value === null || value === "") return "";
+  return `<dt>${esc(label)}</dt><dd>${esc(value)}${copyable ? `<button class="copy" data-copy="${esc(value)}" data-what="${esc(label)}">copy</button>` : ""}</dd>`;
+}
+
+function renderRecord(){
+  renderSwitcher();
+  const p = activePrinter();
+  const badge = $("recordStatus");
+  const box = $("record");
+
+  if (!p){
+    badge.innerHTML = "";
+    box.innerHTML = `<div class="empty"><strong>No printer yet</strong>Get a token, then register a printer to see its cloud identity here.</div>`;
+    $("btnFillCode").disabled = true;
+    $("btnRefresh").disabled = true;
+    return;
+  }
+
+  const d = p.data;
+  const status = p.deregistered ? "DEREGISTERED" : d.status;
+  const cls = status === "CLAIMED" ? "claimed" : status === "DEREGISTERED" ? "gone" : "";
+  badge.innerHTML = `<span class="status-badge ${cls}">${esc(status)}</span>`;
+
+  const history = Array.isArray(d.history) ? d.history : [];
+
+  box.innerHTML =
+    renderRail(status, p.deregistered) +
+    (p.deregistered ? "" : renderClaimStrip(d)) +
+    `<dl class="kv">
+      ${row("Printer ID", d.printer_id, true)}
+      ${row("Serial number", d.serial_number, true)}
+      ${row("Model number", d.model_number)}
+      ${row("Firmware", d.firmware_version)}
+      ${row("Cloud ID", d.cloud_id, true)}
+      ${row("Printer email", d.printer_email_id, true)}
+      ${row("XMPP node", d.xmpp_node)}
+      ${row("Owner", d.owner_user_id || "—")}
+    </dl>` +
+    (history.length ? `<ul class="history">` + history.map(h => {
+      const parts = String(h).split(" :: ");
+      const t = parts.length > 1 ? parts[0] : "";
+      const ev = parts.length > 1 ? parts.slice(1).join(" :: ") : h;
+      let clock = "";
+      if (t){ const dt = new Date(t + "Z"); if (!isNaN(dt)) clock = dt.toLocaleTimeString([], {hour12:false}); }
+      return `<li><time>${esc(clock)}</time><span>${esc(ev)}</span></li>`;
+    }).join("") + `</ul>` : "");
+
+  $("btnFillCode").disabled = !latestClaimCode();
+  $("btnRefresh").disabled = !state.activeId;
+  startTtl();
+}
+
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-copy]");
+  if (b) copy(b.dataset.copy, b.dataset.what || "Value");
+});
+
+/* ---------------- claim code countdown ---------------- */
+
+let ttlTimer = null;
+function startTtl(){
+  if (ttlTimer) clearInterval(ttlTimer);
+  const el = $("ttl");
+  if (!el) return;
+  const exp = Number(el.dataset.exp);
+  const tick = () => {
+    const el2 = $("ttl");
+    if (!el2) { clearInterval(ttlTimer); return; }
+    const left = exp - Date.now();
+    const strip = $("claimstrip");
+    if (left <= 0){
+      el2.textContent = "expired";
+      if (strip) strip.classList.add("expired");
+      return;
+    }
+    const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+    el2.textContent = `${m}:${String(s).padStart(2,"0")}`;
+  };
+  tick();
+  ttlTimer = setInterval(tick, 1000);
+}
+
+/* ---------------- tabs ---------------- */
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t === tab)));
+    document.querySelectorAll("[data-pane]").forEach(p => { p.hidden = p.dataset.pane !== tab.dataset.tab; });
+  });
+});
+
+function goToTab(name){
+  const tab = document.querySelector(`.tab[data-tab="${name}"]`);
+  if (tab) tab.click();
+}
+
+/* ---------------- token ---------------- */
+
+function setToken(tok){
+  state.token = tok;
+  const pill = $("tokenPill");
+  pill.className = "pill" + (tok ? " good" : "");
+  $("tokenText").textContent = tok ? "Signed in as " + $("userId").value.trim() : "No token";
+}
+
+$("btnToken").addEventListener("click", async () => {
+  const uid = $("userId").value.trim();
+  if (!uid) return toast("Enter a user ID first");
+  const r = await api("POST", "/auth/token", { user_id: uid }, { auth:false });
+  if (r.ok && r.data && r.data.access_token){
+    setToken(r.data.access_token);
+    toast("Signed in");
+    goToTab("register");
+  } else {
+    toast("Could not get a token — see the log");
+  }
+});
+
+$("btnClearToken").addEventListener("click", () => { setToken(null); toast("Token cleared"); });
+
+$("btnHealth").addEventListener("click", checkHealth);
+
+async function checkHealth(){
+  const r = await api("GET", "/health", null, { auth:false });
+  const pill = $("healthPill");
+  if (r.ok && r.data && r.data.status === "ok"){
+    pill.className = "pill good";
+    $("healthText").textContent = "Server up";
+  } else {
+    pill.className = "pill bad";
+    $("healthText").textContent = r.status === 0 ? "Unreachable" : "Unhealthy";
+  }
+}
+
+/* ---------------- register ---------------- */
+
+$("btnNewSerial").addEventListener("click", () => {
+  $("serial").value = "SN-" + String(Math.floor(Math.random() * 900000) + 100000);
+});
+
+$("btnRegister").addEventListener("click", async () => {
+  if (!state.token) { toast("Get a token first"); return goToTab("auth"); }
+  const body = {
+    serial_number: $("serial").value,
+    model_number: $("model").value,
+    firmware_version: $("firmware").value,
+    simulate_welcome_page_failure: $("failWelcome").checked,
+  };
+  const r = await api("POST", "/printers/register", body);
+  if (r.ok){
+    const merged = Object.assign({}, body, r.data);
+    upsertPrinter(merged);
+    $("lookupId").value = r.data.printer_id;
+    $("deregId").value = r.data.printer_id;
+    if (r.data.claim_code) $("claimCode").value = r.data.claim_code;
+    toast("Registered — Cloud ID " + r.data.cloud_id);
+  } else {
+    toast(r.status === 422 ? "Registration rejected (422) — check the log" : "Registration failed — check the log");
+  }
+});
+
+/* ---------------- claim ---------------- */
+
+$("btnFillCode").addEventListener("click", () => {
+  const c = latestClaimCode();
+  if (c) { $("claimCode").value = c; toast("Filled the latest claim code"); }
+});
+
+$("btnClaim").addEventListener("click", async () => {
+  if (!state.token) { toast("Get a token first"); return goToTab("auth"); }
+  const code = $("claimCode").value.trim();
+  if (!code) return toast("Enter a claim code");
+  const r = await api("POST", "/printers/claim", { claim_code: code, user_id: $("ownerId").value.trim() });
+  if (r.ok){
+    const p = state.printers.find(x => x.printer_id === r.data.printer_id);
+    upsertPrinter(Object.assign({}, p ? p.data : {}, r.data));
+    toast("Claimed by " + r.data.owner_user_id);
+  } else {
+    toast(r.data && r.data.detail ? String(r.data.detail) : "Claim rejected");
+  }
+});
+
+/* ---------------- lookup ---------------- */
+
+$("btnLookup").addEventListener("click", () => doLookup($("lookupId").value.trim()));
+$("btnRefresh").addEventListener("click", () => doLookup(state.activeId));
+
+async function doLookup(id){
+  if (!state.token) { toast("Get a token first"); return goToTab("auth"); }
+  if (!id) return toast("Enter a printer ID");
+  const r = await api("GET", "/printers/" + encodeURIComponent(id));
+  if (r.ok){
+    upsertPrinter(r.data);
+    toast("Record loaded");
+  } else if (r.status === 404){
+    const p = state.printers.find(x => x.printer_id === id);
+    if (p) { p.deregistered = true; state.activeId = id; renderRecord(); }
+    toast("404 — no record on the server");
+  } else {
+    toast("Lookup failed — check the log");
+  }
+}
+
+/* ---------------- deregister ---------------- */
+
+$("btnDeregister").addEventListener("click", async () => {
+  if (!state.token) { toast("Get a token first"); return goToTab("auth"); }
+  const id = $("deregId").value.trim();
+  if (!id) return toast("Enter a printer ID");
+  const r = await api("DELETE", "/printers/" + encodeURIComponent(id));
+  if (r.ok){
+    const p = state.printers.find(x => x.printer_id === id);
+    if (p){ p.deregistered = true; p.data.status = "DEREGISTERED"; state.activeId = id; }
+    renderRecord();
+    toast("Deregistered");
+  } else {
+    toast("Deregister failed — check the log");
+  }
+});
+
+/* ================= QA RUNS ================= */
+
+const qa = { config:null, ticket:null, status:null, poll:null, artifactKey:null };
+
+/* --- view switching --- */
+document.querySelectorAll(".viewbtn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".viewbtn").forEach(b => b.setAttribute("aria-current", String(b === btn)));
+    $("viewPrinters").hidden = btn.dataset.view !== "printers";
+    $("viewQa").hidden = btn.dataset.view !== "qa";
+    if (btn.dataset.view === "qa" && state.token && !qa.config) loadQaConfig();
+  });
+});
+
+async function loadQaConfig(){
+  const r = await api("GET", "/qa/config");
+  if (!r.ok) return;
+  qa.config = r.data;
+  $("repoTag").textContent = r.data.repo + " · " + r.data.branch;
+
+  const creds = r.data.credentials || {};
+  const missing = Object.keys(creds).filter(k => !creds[k]);
+  $("credWarn").innerHTML = missing.length
+    ? `<div class="warn">Missing on the server: ${missing.map(m => `<code>${esc(m)}</code>`).join(", ")}.
+       Add ${missing.length > 1 ? "them" : "it"} to your <code>.env</code> and restart uvicorn, or the run will fail.</div>`
+    : "";
+  loadRuns();
+}
+
+async function loadRuns(){
+  const r = await api("GET", "/qa/runs");
+  if (!r.ok) return;
+  const runs = (r.data && r.data.runs) || [];
+  $("runsEmpty").hidden = runs.length > 0;
+  $("runList").innerHTML = runs.map(run => {
+    const when = new Date(run.started_at).toLocaleString([], {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit"});
+    return `<li><button class="runbtn" data-ticket="${esc(run.ticket_id)}" aria-pressed="${run.ticket_id === qa.ticket}">
+      <span class="rt">${esc(run.ticket_id)}</span><span class="rw">${esc(when)}</span></button></li>`;
+  }).join("");
+}
+
+$("runList").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-ticket]");
+  if (!b) return;
+  $("ticketId").value = b.dataset.ticket;
+  selectTicket(b.dataset.ticket);
+});
+
+/* --- trigger --- */
+$("btnRunQa").addEventListener("click", async () => {
+  if (!state.token) { toast("Get a token first"); return; }
+  const ticket = $("ticketId").value.trim().toUpperCase();
+  if (!ticket) return toast("Enter a Jira ticket");
+
+  $("btnRunQa").disabled = true;
+  const r = await api("POST", "/qa/trigger", { ticket_id: ticket });
+  $("btnRunQa").disabled = false;
+
+  if (r.ok){
+    toast("Run started for " + ticket);
+    loadRuns();
+    selectTicket(ticket);
+  } else {
+    const d = r.data && r.data.detail;
+    toast(d ? String(d).slice(0, 90) : "Trigger failed — see the log");
+  }
+});
+
+$("btnCheckStatus").addEventListener("click", () => {
+  const ticket = $("ticketId").value.trim().toUpperCase();
+  if (!ticket) return toast("Enter a Jira ticket");
+  selectTicket(ticket);
+});
+
+/* --- status polling --- */
+function selectTicket(ticket){
+  qa.ticket = ticket;
+  qa.artifactKey = null;
+  $("artifactBody").innerHTML = `<div class="empty">Select a completed stage to read what the agent produced.</div>`;
+  $("artifactTitle").textContent = "Artifact";
+  $("artifactLink").hidden = true;
+  loadRuns();
+  refreshStatus();
+  startPolling();
+}
+
+function startPolling(){
+  stopPolling();
+  qa.poll = setInterval(refreshStatus, 12000);
+}
+function stopPolling(){
+  if (qa.poll) { clearInterval(qa.poll); qa.poll = null; }
+}
+
+async function refreshStatus(){
+  if (!qa.ticket || !state.token) return;
+  const r = await api("GET", "/qa/status/" + encodeURIComponent(qa.ticket));
+  if (!r.ok){
+    stopPolling();
+    $("pipeline").innerHTML = `<div class="warn">${esc((r.data && r.data.detail) || "Could not read status.")}</div>`;
+    return;
+  }
+  qa.status = r.data;
+  renderPipeline();
+  if (r.data.finished) { stopPolling(); toast(qa.ticket + " finished"); }
+}
+
+function renderPipeline(){
+  const s = qa.status;
+  if (!s) return;
+
+  const pct = s.total ? Math.round((s.completed / s.total) * 100) : 0;
+  const badge = $("qaOverall");
+  if (!s.tracked)      badge.innerHTML = `<span class="status-badge">Not started here</span>`;
+  else if (s.finished) badge.innerHTML = `<span class="status-badge claimed">Complete</span>`;
+  else                 badge.innerHTML = `<span class="status-badge"><span class="spin"></span>Running</span>`;
+
+  const mark = (st) => st === "done" ? `<span class="stage-mark done">✓</span>`
+              : st === "stale" ? `<span class="stage-mark stale">!</span>`
+              : `<span class="stage-mark"></span>`;
+
+  const word = (st) => st === "done" ? "done" : st === "stale" ? "from earlier run" : "waiting";
+
+  $("pipeline").innerHTML =
+    `<div class="progress">
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <span class="progress-num">${s.completed}/${s.total}</span>
+    </div>` +
+    `<ul class="stages">` + s.stages.map(st => `
+      <li>
+        ${mark(st.status)}
+        <div class="stage-main">
+          <div class="stage-name">${esc(st.label)}</div>
+          <div class="stage-path">${esc(st.path)}</div>
+          ${st.status === "done" || st.status === "stale"
+            ? `<button class="btn btn-sm stage-open" data-artifact="${esc(st.key)}">Read</button>` : ""}
+        </div>
+        <span class="stage-state ${st.status}">${word(st.status)}</span>
+      </li>`).join("") + `</ul>` +
+    (s.context && s.context.length
+      ? `<div class="ctx">` + s.context.map(c =>
+          c.status === "waiting"
+            ? `<span class="btn btn-sm" style="opacity:.5">${esc(c.label)} — not yet</span>`
+            : `<button class="btn btn-sm" data-artifact="${esc(c.key)}">${esc(c.label)}</button>`
+        ).join("") + `</div>`
+      : "") +
+    (!s.tracked
+      ? `<p class="help" style="margin-top:14px">This ticket was not started from this console, so there is no baseline to compare against. Files that already exist are shown as done.</p>`
+      : "");
+}
+
+/* --- artifact viewer --- */
+$("pipeline").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-artifact]");
+  if (!b) return;
+  const key = b.dataset.artifact;
+  qa.artifactKey = key;
+
+  $("artifactBody").innerHTML = `<div class="empty"><span class="spin"></span>Loading…</div>`;
+  const r = await api("GET", `/qa/artifact/${encodeURIComponent(qa.ticket)}/${encodeURIComponent(key)}`);
+
+  if (!r.ok){
+    $("artifactBody").innerHTML = `<div class="warn">${esc((r.data && r.data.detail) || "Could not load this file.")}</div>`;
+    return;
+  }
+  $("artifactTitle").textContent = r.data.label + " · " + qa.ticket;
+  const link = $("artifactLink");
+  if (r.data.html_url){ link.href = r.data.html_url; link.hidden = false; } else { link.hidden = true; }
+  $("artifactBody").innerHTML = `<pre class="artifact-view">${esc(r.data.content)}</pre>`;
+});
+
+/* ---------------- boot ---------------- */
+
+setToken(null);
+renderLog();
+checkHealth();
+</script>
+</body>
+</html>
