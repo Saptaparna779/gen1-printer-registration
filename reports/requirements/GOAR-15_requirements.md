@@ -17,8 +17,8 @@ GOAR-15 introduces model-number change detection in the re-registration path, lo
       - GOAR-15-specific behaviour:
         - Compares existing vs incoming `model_number` using normalized values (`printer.model_number.strip().upper()` vs `model_number.strip().upper()`).
         - If the normalized `model_number` differs:
-          - Calls `printer.log("GOAR-15: model_number changed on re-registration (old=..., new=...) -- flagged for review")`, adding a history entry that records the old and new model numbers and marks the event as "flagged for review".
-          - Emits a `WARNING` log via the module-level `logger` with a message including the serial number and old/new models, and passes structured fields via `extra={"serial_number": ..., "old_model": ..., "new_model": ...}`.
+          - Calls `printer.log("GOAR-15: model_number changed on re-registration (old={printer.model_number}, new={model_number}) -- flagged for review")`, adding a history entry that records the old and new model numbers and marks the event as "flagged for review".
+          - Emits a `WARNING` log via the module-level `logger` with a message including the serial number and old/new models, and passes structured fields via `extra={"serial_number": serial_number, "old_model": printer.model_number, "new_model": model_number}`.
           - Computes `_model_family(printer.model_number)` and `_model_family(model_number)`; if they differ, raises `RegistrationError` with a message that the re-registration is rejected due to model family mismatch and appears to be a different physical device reusing the same serial number.
         - If the normalized `model_number` is the same, no GOAR-15 logging or rejection occurs.
       - After any GOAR-15 checks pass, updates `printer.model_number` and `printer.firmware_version` to the incoming values.
@@ -67,7 +67,7 @@ GOAR-15 introduces model-number change detection in the re-registration path, lo
 - `app/main.py`
   - `POST /printers/register`
     - Accepts `serial_number`, `model_number`, `firmware_version`, and optional `simulate_welcome_page_failure` in `RegisterRequest`.
-    - Requires a valid bearer token via `verify_token`; missing headers or invalid tokens cause 422/401 responses.
+    - Requires a valid bearer token via `verify_token`; missing headers or invalid tokens cause 401/422 responses depending on FastAPI's dependency behaviour.
     - Calls `registration.register_printer(...)`.
     - On `RegistrationError`, returns HTTP 422 with an error detail.
     - On success, returns printer identity, Cloud ID, email, claim code (if applicable), XMPP node, status, and registration history.
