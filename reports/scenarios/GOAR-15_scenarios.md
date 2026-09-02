@@ -4,7 +4,7 @@
 
 ### AC1 — Model-number change on re-registration is flagged/logged as a notable event for review
 
-[HAPPY PATH] Same-serial re-registration where the normalized model_number changes within the same model family succeeds, generates new Cloud identity values, and records a GOAR-15 history entry plus structured WARNING log with serial_number, old_model, and new_model fields.
+[HAPPY PATH] Same-serial re-registration where the normalized model_number changes within the same model family succeeds and records both a GOAR-15 history entry and a structured WARNING log with serial_number, old_model, and new_model fields.
            Requirement: AC1
 
 [BOUNDARY VALUE] Re-registration where model_number differs only by case and/or leading or trailing whitespace is treated as unchanged after normalization and therefore does not append a GOAR-15 history entry or emit a model-change WARNING log.
@@ -65,7 +65,7 @@
 [HAPPY PATH] Re-registration of a CLAIMED printer with a same-family normalized model_number change succeeds, logs the model change, and still preserves owner_user_id and CLAIMED status.
            Requirement: AR3
 
-[OWNERSHIP] Attempted re-registration of a CLAIMED printer from a non-owner context does not transfer or clear ownership and leaves owner_user_id and CLAIMED status intact.
+[OWNERSHIP] Any successful re-registration of a CLAIMED printer, regardless of model_number or firmware_version updates accepted by GOAR-15, preserves owner_user_id and CLAIMED status.
            Requirement: AR3
 
 ### AR4 — Model-number normalization for change detection
